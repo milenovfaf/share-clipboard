@@ -312,7 +312,7 @@ class UiMainWindow(object):
 
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
-        MainWindow.setWindowTitle(_translate("MainWindow", "Smart Сlipboard"))
+        MainWindow.setWindowTitle(_translate("MainWindow", "Share Сlipboard"))
         self.ip.setPlaceholderText(_translate("MainWindow", " 127.0.0.1 *"))
         self.port.setPlaceholderText(_translate("MainWindow", " 7000 *"))
         self.label_ip.setText(_translate("MainWindow", "<html><head/><body><p>Адрес сервера</p></body></html>"))
