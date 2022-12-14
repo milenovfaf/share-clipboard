@@ -1,7 +1,7 @@
 from PyQt5 import QtCore, QtWidgets
+from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import QSystemTrayIcon, QMenu, QAction, QStyle, qApp
 import app_settings
-
 
 # qt http://qtdocs.narod.ru/4.1.0/doc/html/qwidget.html#minimized-prop
 
@@ -351,12 +351,12 @@ class ShowUiMainWindow(QtWidgets.QMainWindow):
         # ----------------------------------------------------------------------
         ''' Кнопка "Применить" '''
         self.ui.button_apply.clicked.connect(self.apply_parameters)
-
-        # ------ СВОРАЧИВАНИЕ В ТРЕЙ -------------------------------------------
-
-        self.tray_icon = QSystemTrayIcon(self)  # Инициализируем QSystemTrayIcon
+        # ----------------------------------------------------------------------
+        ''' Сворачивание в трей '''
+        self.tray_icon = QSystemTrayIcon(self)
         self.tray_icon.setIcon(
             self.style().standardIcon(QStyle.SP_ComputerIcon))
+        # self.tray_icon.setIcon(QIcon('icon.ico'))
 
         show_action = QAction("Показать", self)
         quit_action = QAction("Закрыть", self)
@@ -393,7 +393,6 @@ class ShowUiMainWindow(QtWidgets.QMainWindow):
                 QSystemTrayIcon.Information,
                 1000
             )
-
     # --------------------------------------------------------------------------
 
     def window_placement(self):

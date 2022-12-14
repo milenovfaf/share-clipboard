@@ -105,7 +105,7 @@ class ThreadedTCPRequestHandler:
 
 
 def main():
-    HOST, PORT = '127.0.0.1', 7006
+    HOST, PORT = '0.0.0.0', 7006
     #
     app = ServerApp()
 

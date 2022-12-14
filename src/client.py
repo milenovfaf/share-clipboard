@@ -45,11 +45,13 @@ class Client:
                     )
                     continue
                 #
+                client_name = server_data.get('client_name')
                 clipboard_content = server_data.get('client_data')
                 #
                 callback_server_msg(
-                    clipboard_content
+                    client_name, clipboard_content
                 )
+
             #
             self._is_listening.clear()
         #
@@ -121,10 +123,12 @@ class Client:
 
     def send_clipboard_content(
             self,
+            client_name,
             target_client_name,
             clipboard_content,
     ):
         return self.send_to_server({
+            'client_name':        client_name,
             'target_client_name': target_client_name,
             'client_data':        clipboard_content,
         })

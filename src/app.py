@@ -116,7 +116,6 @@ class App:
                 self.remote.connect(self.settings)
             #
         #
-
     #
 
     def close_app(self):
@@ -158,8 +157,9 @@ class App:
 
     @callback_error_alert
     def _callback_on_copy(self, clipboard_content):
-        """ Отправка данных на сервер """
+        """ Отправка данных на сервер для клиента синхронизации """
         self.remote.send_clipboard_content(
+            self.settings.client_name,
             self.settings.client_name_for_sync,
             # ----------- ^^^^^^ -------- ^^^^
             clipboard_content,
@@ -167,18 +167,26 @@ class App:
 
     @callback_error_alert
     def _callback_on_copy_share(self, clipboard_content):
-        """ Отправка данных на сервер """
+        """ Отправка данных на сервер для клиента с которым делимся """
         self.remote.send_clipboard_content(
+            self.settings.client_name,
             self.settings.client_name_for_share,
             # ----------- ^^^^^ --------- ^^^^
             clipboard_content,
         )
 
-    @staticmethod
-    def _callback_receive_clipboard_content(clipboard_content):
-        """ Получение данных буфера обмена от сервера """
+    @callback_error_alert
+    def _callback_receive_clipboard_content(self, client_name, clipboard_content):
+        """ Получение данных буфера обмена от сервера и синхронизация """
         pyperclip.copy(clipboard_content)
+        if client_name != self.settings.client_name_for_sync:
+            self.remote.send_clipboard_content(
+                self.settings.client_name,
+                self.settings.client_name_for_sync,
+                clipboard_content,
+            )
 
+    @callback_error_alert
     def _callback_receive_error_msg(self, error_msg):
         """ Получение сообщений об ошибке от сервера """
         self.gui.ui.label_error.setText(error_msg)

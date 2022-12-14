@@ -34,10 +34,26 @@
 
 ## Установка
 
-Для работы библиотеки "pyperclip" используемой в проекте, необходимо выполнить:
+Для работы библиотеки "pyperclip" на Linux используемой в проекте, необходимо установить:
 
 > su root
 >
 > sudo apt-get install xclip
 >
 > sudo apt-get install xsel
+
+
+## Сервер
+
+> ssh -p 13022 root@45.141.77.236
+>
+> root@45.141.77.236:13022  формат для mc
+>
+> docker build --tag zum/cp_server:0.0.1 -f .dockerfile .
+>
+> docker images 
+>
+> docker run -d --restart=always  --name cp_server -p 0.0.0.0:7000:7006 zum/cp_server:0.0.1
+>
+> 45.141.77.236:7000
+
