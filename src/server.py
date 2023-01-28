@@ -87,7 +87,7 @@ class ThreadedTCPRequestHandler:
             if self.app.get_handler(target_client_name) is None:
                 self.send_data({
                     'status': 'error',
-                    'error': f'Имя {target_client_name} недоступно',
+                    'error': f'Клиент "{target_client_name}" не подключён к серверу'
                 })
                 continue
             #

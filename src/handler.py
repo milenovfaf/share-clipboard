@@ -1,3 +1,5 @@
+from PyQt5 import QtWidgets
+from PyQt5.QtWidgets import QApplication
 from pynput.keyboard import Controller, Key
 from pynput import keyboard
 import pyperclip
@@ -12,10 +14,14 @@ class HotkeysCopyPasteHandler(object):
         assert callable(callback_on_copy)
         self.callback_on_copy = callback_on_copy
         self.callback_on_copy_share = callback_on_copy_share
+
+        self.clipboard = QtWidgets.QApplication.clipboard()
+
         self.keyboard = Controller()
         self.kh = None
         self.connector = '\n'
-        self.list_clipboard_content = ['', '']
+        self.list_clipboard_data = ['', '']
+        # ----------------------------------------------------------------------
     #
 
     def start(self, app_settings) -> None:
@@ -37,11 +43,10 @@ class HotkeysCopyPasteHandler(object):
     def _configure(self, app_settings):
         callback_set = {}
         for hot_key_map, callback in [
-            (app_settings.copy_keys,                self._copy),
             (app_settings.copy_join_keys,           self._copy_join),
-            (app_settings.copy_share_keys,          self._copy_share),
+            (app_settings.share_keys,               self._share_clipboard),
             (app_settings.connector_space_bar_keys, self._connector_space_bar),
-            (app_settings.connector_enter_keys,     self._connector_enter),
+            (app_settings.connector_new_line_keys,  self._connector_new_line),
             (app_settings.connector_none_keys,      self._connector_none),
         ]:
             if hot_key_map is None:
@@ -52,7 +57,53 @@ class HotkeysCopyPasteHandler(object):
         self.kh = keyboard.GlobalHotKeys(callback_set)  # <<<<<<<<<<<<<<
     # --------------------------------------------------------------------------
 
-    def _connector_enter(self) -> None:
+    def synchronizer_clipboard(self, received_clipboard_data):
+        """ Синхронизация буфера между клиентами """
+        print('Обнаружено изменение буфера обмена')
+        if received_clipboard_data == self.list_clipboard_data[-1]:
+            self.list_clipboard_data.append(received_clipboard_data)
+            return
+        clipboard_data = self.clipboard.text()
+        if clipboard_data == self.list_clipboard_data[-1]:
+            return
+        # if self.list_clipboard_data[-1] == '':
+        #     return
+        self.list_clipboard_data.append(clipboard_data)
+        self.callback_on_copy(clipboard_data)
+
+        print(self.list_clipboard_data)
+
+        if len(self.list_clipboard_data) >= 50:
+            del self.list_clipboard_data[:30]
+        #
+
+    def _copy_join(self):
+        """ Копирование и соединение содержимого с содержимым предидущего
+        копирования """
+        print('Обнаружена комбинация клавиш copy_join')
+        with self.keyboard.pressed(Key.ctrl):
+            self.keyboard.press('c')
+            self.keyboard.release('c')
+        #
+        previous_content = self.list_clipboard_data[-2]
+        new_content = self.list_clipboard_data[-1]
+        content = previous_content, new_content
+        joined_content = self.connector.join(content)
+        #
+        self.list_clipboard_data.append(joined_content)
+        self.clipboard.setText(joined_content)  # Вызовит синхронизацию
+        self.callback_on_copy(joined_content)
+        print(self.list_clipboard_data)
+    #
+
+    def _share_clipboard(self):
+        """ Поделиться содержимым буфера обмена """
+        print('Обнаружена комбинация клавиш share_keys')
+        clipboard_data = self.clipboard.text()
+        #
+        self.callback_on_copy_share(clipboard_data)
+
+    def _connector_new_line(self) -> None:
         self.connector = '\n'
     #
 
@@ -63,44 +114,4 @@ class HotkeysCopyPasteHandler(object):
     def _connector_none(self) -> None:
         self.connector = ''
     #
-
-    def _copy(self):
-        """ Копирование и синхронизация буфера между клиентами """
-        print('Обнаружена комбинация клавиш Ctrl+C')
-        clipboard_content = pyperclip.paste()
-        self.list_clipboard_content.append(clipboard_content)
-        self.callback_on_copy(clipboard_content)
-
-        print(self.list_clipboard_content)
-
-        if len(self.list_clipboard_content) >= 50:
-            del self.list_clipboard_content[:30]
-    #
-
-    def _copy_join(self):
-        """ Копирование и соединение содержимого с содержимым предидущего
-        копирования """
-        print('Обнаружена комбинация клавиш copy join')
-        with self.keyboard.pressed(Key.ctrl):
-            self.keyboard.press('c')
-            self.keyboard.release('c')
-        #
-        previous_content = self.list_clipboard_content[-2]
-        new_content = self.list_clipboard_content[-1]
-        content = previous_content, new_content
-        joined_content = self.connector.join(content)
-        #
-        pyperclip.copy(joined_content)
-        self.list_clipboard_content.append(joined_content)
-        #
-        self.callback_on_copy(joined_content)
-        print(self.list_clipboard_content)
-    #
-
-    def _copy_share(self):
-        """ Поделиться содержимым буфера обмена """
-        print('Обнаружена комбинация клавиш copy share')
-        clipboard_content = pyperclip.paste()
-        #
-        self.callback_on_copy_share(clipboard_content)
     # --------------------------------------------------------------------------

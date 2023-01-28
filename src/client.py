@@ -11,8 +11,8 @@ log = logging.getLogger(__name__)
 
 
 class Client:
-    def __init__(self, callback_server_msg, callback_server_error_msg):
-        assert callable(callback_server_msg)
+    def __init__(self, callback_server_data, callback_server_error_msg):
+        assert callable(callback_server_data)
         assert callable(callback_server_error_msg)
         #
         sock = socket(AF_INET, SOCK_STREAM)
@@ -48,7 +48,7 @@ class Client:
                 client_name = server_data.get('client_name')
                 clipboard_content = server_data.get('client_data')
                 #
-                callback_server_msg(
+                callback_server_data(
                     client_name, clipboard_content
                 )
 
