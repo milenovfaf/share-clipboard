@@ -4,6 +4,7 @@ import app_settings
 from transport import JsonTransportProtocol
 import logging
 from socket import timeout as ReadTimeoutError
+import time
 
 log = logging.getLogger(__name__)
 
@@ -11,17 +12,22 @@ log = logging.getLogger(__name__)
 
 
 class Client:
-    def __init__(self, callback_server_data, callback_server_error_msg):
+    def __init__(self,
+                 callback_server_data,
+                 callback_server_msg,
+                 ):
         assert callable(callback_server_data)
-        assert callable(callback_server_error_msg)
+        assert callable(callback_server_msg)
+        self.callback_server_msg = callback_server_msg
         #
-        sock = socket(AF_INET, SOCK_STREAM)
+        self.sock = socket(AF_INET, SOCK_STREAM)
         self._is_connected = Event()
         #
-        self.transport = JsonTransportProtocol(sock)
+        self.transport = JsonTransportProtocol(self.sock)
         #
         self._is_listening = Event()
-
+        #
+        self.settings = None
         # ----------------------------------------------------------------------
 
         def msg_server_handler():
@@ -33,15 +39,16 @@ class Client:
                 try:
                     server_data = self.transport.recv()
                 except ReadTimeoutError as e:
+                    # log.exception(e)
                     continue
                 #
                 if not server_data:
                     break
                 #
-                if 'error' in server_data:
-                    error_msg = server_data['error']
-                    callback_server_error_msg(
-                        error_msg
+                if server_data.get('status') in ('error', 'notification'):
+                    server_msg = server_data['msg']
+                    callback_server_msg(
+                        server_msg
                     )
                     continue
                 #
@@ -51,7 +58,6 @@ class Client:
                 callback_server_data(
                     client_name, clipboard_content
                 )
-
             #
             self._is_listening.clear()
         #
@@ -84,17 +90,26 @@ class Client:
     # --------------------------------------------------------------------------
 
     def connect(self, settings: app_settings.AppSettings) -> None:
+        self.settings = settings
         self.transport.sock.connect((settings.ip, int(settings.port)))
-        self.transport.settimeout(30)
+        log.info(f'Подключено к: {settings.ip}:{settings.port}')
         #
+        self.transport.settimeout(30)
         # self.send_to_server({  # еще не установлен флаг _is_connected
         self.transport.sender({
+            'client_version': settings.client_version,
             'client_name': settings.client_name,
         })
         server_data = self.transport.recv()
-        if server_data.get('status') != 'success':
+        #
+        if not server_data:
             raise ConnectionError
         #
+        if server_data.get('status') in ('error', 'notification'):
+            server_msg = server_data['msg']
+            self.callback_server_msg(
+                server_msg
+            )
         self._is_connected.set()
         #
         self._start_listening()
@@ -125,12 +140,12 @@ class Client:
             self,
             client_name,
             target_client_name,
-            clipboard_content,
+            clipboard_data,
     ):
         return self.send_to_server({
             'client_name':        client_name,
             'target_client_name': target_client_name,
-            'client_data':        clipboard_content,
+            'client_data':        clipboard_data,
         })
 # ------------------------------------------------------------------------------
 

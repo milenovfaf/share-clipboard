@@ -1,6 +1,8 @@
 from socket import *
 import struct
 import json
+import logging
+log = logging.getLogger(__name__)
 
 
 class TransportProtocol:
@@ -15,14 +17,14 @@ class TransportProtocol:
 
     def sender(self, text):
         self._msg_counter = self._msg_counter + 1
-        print(f'{self._msg_counter} sender {text}')
+        log.debug(f'{self._msg_counter} sender {text}')
         text = bytes(text, 'utf-8')
         # Отправляем пакет 4 байта, хранящие длинну сообщения + само сообщение
         count_send = self.sock.sendall(
             # https://tirinox.ru/python-struct/
             struct.pack('>I', len(text)) + text
         )
-        print(f'{self._msg_counter}// sender {count_send}')
+        log.debug(f'{self._msg_counter}// sender {count_send}')
     #
 
     # Вспомогательная функция
@@ -38,7 +40,7 @@ class TransportProtocol:
                 return None
             received_data += packet
         #
-        print(f'{self._msg_counter}//recv {n} bytes == {received_data}')
+        log.debug(f'{self._msg_counter}//recv {n} bytes == {received_data}')
         return received_data
     #
 

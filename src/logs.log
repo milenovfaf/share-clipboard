@@ -1,0 +1,12 @@
+2023-02-08 14:43:34,917 - __main__ - INFO - 
+2023-02-08 14:43:34,933 - __main__ - INFO - 
+2023-02-08 14:43:34,933 - client - INFO - Подключено к: 127.0.0.1:7006
+2023-02-08 14:43:34,936 - transport - DEBUG - 1 sender {"client_version": 0.3, "client_name": "zum"}
+2023-02-08 14:43:34,938 - transport - DEBUG - 1// sender None
+2023-02-08 14:43:34,938 - transport - DEBUG - 2//recv 4 bytes == b'\x00\x00\x00+'
+2023-02-08 14:43:34,938 - transport - DEBUG - 3//recv 43 bytes == b'{"status": "success", "client_name": "zum"}'
+2023-02-08 14:44:04,481 - handler - INFO - Обнаружено изменение буфера обмена
+2023-02-08 14:44:04,482 - __main__ - INFO - 
+2023-02-08 14:44:04,482 - transport - DEBUG - 63 sender {"client_name": "zum", "target_client_name": null, "client_data": ">+k"}
+2023-02-08 14:44:04,483 - transport - DEBUG - 63// sender None
+2023-02-08 14:44:04,483 - handler - INFO - ['', '', '>+k']

@@ -1,8 +1,15 @@
+import logging
+import sys
+
 from PyQt5 import QtCore, QtWidgets
-from PyQt5.QtCore import QTimer
-from PyQt5.QtGui import QIcon
-from PyQt5.QtWidgets import QSystemTrayIcon, QMenu, QAction, QStyle, qApp
+from PyQt5.QtCore import QTimer, QMetaType, QMetaObject
+from PyQt5.QtGui import QIcon, QTextCursor
+from PyQt5.QtWidgets import QSystemTrayIcon, QMenu, QAction, QStyle, qApp, \
+    QTextEdit
 import app_settings
+import logging
+
+log = logging.getLogger(__name__)
 
 
 # qt http://qtdocs.narod.ru/4.1.0/doc/html/qwidget.html#minimized-prop
@@ -415,6 +422,23 @@ class UiMainWindow(object):
             _translate("MainWindow", "Имя клиента"))
 
 
+class LogWindow(QtWidgets.QTextEdit):
+    newMessage = QtCore.pyqtSignal(str)
+
+    def __init__(self):
+        super().__init__()
+        self.newMessage.connect(self.log)
+
+    @QtCore.pyqtSlot(str)
+    def log(self, message):
+        self.append(message)
+
+    def closeEvent(self, event):
+        """ Перехват события закрытия окна """
+        event.ignore()
+        self.hide()
+
+
 class ShowUiMainWindow(QtWidgets.QMainWindow):
     tray_icon = None
 
@@ -426,6 +450,8 @@ class ShowUiMainWindow(QtWidgets.QMainWindow):
         self.ui = UiMainWindow()
         self.ui.setupUi(self)
         # ----------------------------------------------------------------------
+        self.log_window = LogWindow()
+        # ----------------------------------------------------------------------
         ''' Кнопка "Применить" '''
         self.ui.button_apply.clicked.connect(self.apply_parameters)
         # ----------------------------------------------------------------------
@@ -436,13 +462,16 @@ class ShowUiMainWindow(QtWidgets.QMainWindow):
         # self.tray_icon.setIcon(QIcon('icon.ico'))
 
         show_action = QAction("Показать", self)
+        log_action = QAction("Показать лог", self)
         quit_action = QAction("Закрыть", self)
         hide_action = QAction("Свернуть в трей", self)
         show_action.triggered.connect(self.show)
+        log_action.triggered.connect(lambda: self.log_window.show())
         hide_action.triggered.connect(self.hide)
         quit_action.triggered.connect(qApp.quit)
         tray_menu = QMenu()
         tray_menu.addAction(show_action)
+        tray_menu.addAction(log_action)
         tray_menu.addAction(hide_action)
         tray_menu.addAction(quit_action)
         self.tray_icon.setContextMenu(tray_menu)
@@ -477,6 +506,9 @@ class ShowUiMainWindow(QtWidgets.QMainWindow):
     #             QSystemTrayIcon.Information,
     #             1000
     #         )
+
+    # --------------------------------------------------------------------------
+
     # --------------------------------------------------------------------------
 
     def window_placement(self):
@@ -534,3 +566,4 @@ class ShowUiMainWindow(QtWidgets.QMainWindow):
             new_settings,
         )
         # ----------------------------------------------------------------------
+

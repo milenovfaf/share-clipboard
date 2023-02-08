@@ -1,3 +1,6 @@
+import time
+from threading import Thread
+
 from PyQt5 import QtWidgets
 import sys
 
@@ -10,36 +13,46 @@ from functools import wraps
 from pathlib import Path
 from contextlib import contextmanager
 import client
-import pyperclip
 import logging
+from logging import handlers
 
 log = logging.getLogger(__name__)
-
 
 # ------------------------------------------------------------------------------
 
 
+def show_mag(gui, msg, success=None, popup=None):
+    if success:
+        gui.ui.label_error.setStyleSheet('color: #00CC00')  # Green
+        gui.ui.label_error.setText(msg)
+        gui.ui.label_error.update()
+        # log.info(msg)
+        return
+    gui.ui.label_error.setStyleSheet('color: #FF0000')  # Red
+    gui.ui.label_error.setText(msg)
+    gui.ui.label_error.update()
+    log.info(msg)
+    if popup:
+        gui.tray_icon.showMessage(
+            "Share Clipboard",
+            msg,
+        )
+
+
 @contextmanager
-def show_msg_in_ui(label_error, msg=None, success=False):
-    """ Отображение ошибки в интерфэйсе """
+def error_interceptor(gui, msg=None, success=False):
+    """ Обработка ошибок """
     try:
-        label_error.setText('')
-        label_error.update()
+        show_mag(gui, msg='')
         if success:
-            label_error.setStyleSheet('color: #00CC00')  # Green
-            label_error.setText('Подключено к серверу')
-            label_error.update()
+            show_mag(gui, 'Подключено к серверу', success)
         yield None
-    except ConnectionError as e:
+    except (ConnectionError, ConnectionRefusedError) as e:
         log.exception(e)
-        label_error.setStyleSheet('color: #FF0000')  # Red
-        label_error.setText('Нет подключения к серверу')
-        label_error.update()
+        show_mag(gui, 'Нет подключения к серверу')
     except Exception as e:
         log.exception(e)
-        label_error.setStyleSheet('color: #FF0000')  # Red
-        label_error.setText(f' {msg} ({e})')
-        label_error.update()
+        show_mag(gui, f' {msg} ({e})')
     finally:
         pass
 
@@ -93,26 +106,31 @@ class App:
         self.settings_file_path = settings_file_path
         #
         self.hotkey_handler = handler.HotkeysCopyPasteHandler(
-            self._callback_on_copy, self._callback_on_copy_share,
+            self._callback_on_synchronization, self._callback_on_share,
         )
+        # ----------------------------------------------------------------------
         self.gui = gui_qt.ShowUiMainWindow(
             self.callback_settings_update
         )
+        # ----------------------------------------------------------------------
         self.remote = client.Client(
             callback_server_data=self._callback_receive_clipboard_data,
-            callback_server_error_msg=self._callback_receive_error_msg,
+            callback_server_msg=self._callback_receive_msg
         )
         # ----------------------------------------------------------------------
         self.settings = None
         self.received_clipboard_data = None
-        # ----------------------------------------------------------------------
+        # ------ Буфер ---------------------------------------------------------
         self.clipboard = QtWidgets.QApplication.clipboard()
         # Если содержимое буфера обмена изменилось
         self.clipboard.dataChanged.connect(
             lambda: self.hotkey_handler.synchronizer_clipboard(
                 self.received_clipboard_data
             ))
-
+        # ----------------------------------------------------------------------
+        self.reconnection = Thread(
+            target=self.reconnect
+        )
         # ----------------------------------------------------------------------
 
     def start_app(self):
@@ -122,24 +140,42 @@ class App:
             self.settings = _create_settings(self.settings_file_path)
         assert isinstance(self.settings, app_settings.AppSettings)
         #
-        with show_msg_in_ui(
-                self.gui.ui.label_error, 'Ошибка синтаксиса'
+        with error_interceptor(
+                self.gui, 'Ошибка синтаксиса'
         ):
             self.hotkey_handler.start(self.settings)
         #
         self.gui.show_gui(self.settings)
         #
         if self.settings.client_name and self.settings.ip and self.settings.port:
-            with show_msg_in_ui(
-                    self.gui.ui.label_error, success=True
+            with error_interceptor(
+                    self.gui, success=True
             ):
                 self.remote.connect(self.settings)
-            #
-        #
-    #
+        self.reconnection.start()
 
     def close_app(self):
-        self.remote.disconnect(self.settings)
+        self.remote.disconnect()
+        #
+
+    # ------ Reconnect ---------------------------------------------------------
+
+    def reconnect(self):
+        """ Переподключение """
+        while True:
+            time.sleep(5)
+            if self.remote.listen_thread.is_alive() is False:
+                show_mag(self.gui, 'Нет подключения к серверу')
+                self.remote.disconnect()
+                # ------------------------------- #
+                self.remote = client.Client(
+                    callback_server_data=self._callback_receive_clipboard_data,
+                    callback_server_msg=self._callback_receive_msg
+                )  # ---------------------------- #
+                with error_interceptor(
+                        self.gui, success=True
+                ):
+                    self.remote.connect(self.settings)
 
     # ------ Apply -------------------------------------------------------------
 
@@ -150,43 +186,43 @@ class App:
         with open(self.settings_file_path, 'w') as file:
             self.settings.save_to_file(file)
         #
-        with show_msg_in_ui(
-                self.gui.ui.label_error, 'Ошибка синтаксиса'
+        with error_interceptor(
+                self.gui, 'Ошибка синтаксиса'
         ):
             self.hotkey_handler.stop()
             # ------------------------------- #
             self.hotkey_handler = handler.HotkeysCopyPasteHandler(
-                self._callback_on_copy, self._callback_on_copy_share
+                self._callback_on_synchronization, self._callback_on_share
             )  # ---------------------------- #
             self.hotkey_handler.start(self.settings)
         #
         if self.settings.client_name and self.settings.ip and self.settings.port:
-            with show_msg_in_ui(
-                    self.gui.ui.label_error, success=True
+            with error_interceptor(
+                    self.gui, success=True
             ):
-                self.remote.disconnect(self.settings)
+                self.remote.disconnect()
                 # ------------------------------- #
                 self.remote = client.Client(
                     callback_server_data=self._callback_receive_clipboard_data,
-                    callback_server_error_msg=self._callback_receive_error_msg,
+                    callback_server_msg=self._callback_receive_msg,
                 )  # ---------------------------- #
                 self.remote.connect(self.settings)
-                return
-                #
             #
-        with show_msg_in_ui(
-                self.gui.ui.label_error, 'Не заданы обязательные поля'
-        ):
-            raise ValueError
+        else:
+            with error_interceptor(
+                    self.gui, 'Не заданы обязательные поля'
+            ):
+                raise ValueError
             #
         #
+
     # ------ Send --------------------------------------------------------------
 
     @callback_error_alert
-    def _callback_on_copy(self, clipboard_data):
+    def _callback_on_synchronization(self, clipboard_data):
         """ Отправка данных на сервер для клиента синхронизации """
-        with show_msg_in_ui(
-                self.gui.ui.label_error, success=True
+        with error_interceptor(
+                self.gui, success=True
         ):
             self.remote.send_clipboard_content(
                 self.settings.client_name,
@@ -196,10 +232,10 @@ class App:
             )
 
     @callback_error_alert
-    def _callback_on_copy_share(self, clipboard_data):
+    def _callback_on_share(self, clipboard_data):
         """ Отправка данных на сервер для клиента с которым делимся """
-        with show_msg_in_ui(
-                self.gui.ui.label_error, success=True
+        with error_interceptor(
+                self.gui, success=True
         ):
             self.remote.send_clipboard_content(
                 self.settings.client_name,
@@ -208,6 +244,7 @@ class App:
                 clipboard_data,
             )
         #
+
     # ------- Receive ----------------------------------------------------------
 
     @callback_error_alert
@@ -216,8 +253,8 @@ class App:
         self.received_clipboard_data = clipboard_data
         self.clipboard.setText(clipboard_data)
         if client_name != self.settings.client_name_for_sync:
-            with show_msg_in_ui(
-                    self.gui.ui.label_error, success=True
+            with error_interceptor(
+                    self.gui, success=True
             ):
                 self.remote.send_clipboard_content(
                     self.settings.client_name,
@@ -228,22 +265,50 @@ class App:
         #
 
     @callback_error_alert
-    def _callback_receive_error_msg(self, error_msg):
-        """ Получение сообщений об ошибке от сервера """
-        self.gui.ui.label_error.setStyleSheet('color: #FF0000')  # Red
-        self.gui.ui.label_error.setText(error_msg)
-        self.gui.ui.label_error.update()
-        self.gui.tray_icon.showMessage(
-            "Share Clipboard",
-            error_msg,
-        )
+    def _callback_receive_msg(self, msg, success=None, popup=None):
+        """ Получение сообщений от клиента и сервера """
+        show_mag(self.gui, msg, success, popup=True)
     #
+
+
 # ------------------------------------------------------------------------------
+
+class LogHandler(logging.Handler):
+    def __init__(self, log_window: gui_qt.LogWindow):
+        super(LogHandler, self).__init__()
+        self.log_window = log_window
+
+    def emit(self, record):
+        message = self.format(record)
+        self.log_window.log(message)
 
 
 def main(file='settings.json'):
     window = QtWidgets.QApplication(sys.argv)
     app = App(file)
+    # ------------------------------------------------- #
+    logger = logging.getLogger()
+    logger.setLevel(logging.DEBUG)
+    # ------------------------------------------------- #
+    formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    # ------------------------------------------------- #
+    window_handler = LogHandler(app.gui.log_window)
+    window_handler.setLevel(logging.DEBUG)
+    window_handler.setFormatter(formatter)
+    # ------------------------------------------------- #
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setLevel(logging.DEBUG)
+    console_handler.setFormatter(formatter)
+    # ------------------------------------------------- #
+    file_handler = logging.handlers.RotatingFileHandler('logs.log')
+    file_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(formatter)
+    # ------------------------------------------------- #
+    logger.addHandler(window_handler)
+    logger.addHandler(console_handler)
+    logger.addHandler(file_handler)
+    # ------------------------------------------------- #
     app.start_app()
     return_code = window.exec()
     app.close_app()
@@ -255,4 +320,3 @@ if __name__ == '__main__':
     main()
     print('END')
 #
-

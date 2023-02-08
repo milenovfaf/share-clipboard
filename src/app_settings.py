@@ -12,8 +12,8 @@ class EmtpyFileSettingsError(SettingsError):
 
 def get_default_app_settings():
     return AppSettings(
-        ip='127.0.0.1',
-        port='7006',
+        ip='45.141.77.236',
+        port='7000',
         copy_join_keys='<shift>+<ctrl>+c',
         connector_new_line_keys='<ctrl>+1',
         connector_space_bar_keys='<ctrl>+2',
@@ -48,6 +48,7 @@ class AppSettings:
             connector_space_bar_keys:   str = None,
             connector_none_keys:        str = None,
     ):
+        self.client_version = 0.3
         self.client_name = str_validator(client_name)
         self.client_name_for_sync = str_validator(client_name_for_sync)
         self.client_name_for_share = str_validator(client_name_for_share)

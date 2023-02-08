@@ -13,6 +13,7 @@ class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
 
 class ServerApp:
     def __init__(self):
+        self.server_version = 0.3
         self.lock = threading.RLock()
         self.client_data = {}
         self.client_data_map = {}
@@ -49,18 +50,33 @@ class ThreadedTCPRequestHandler:
         #
         self.app = app
         self.transport = JsonTransportProtocol(request)
-        #
     # --------------------------------------------------------------------------
 
     def authorize(self, handler) -> bool:
         assert isinstance(handler, ThreadedTCPRequestHandler)
         client_data: dict = self.transport.recv()
         client_name = client_data.get('client_name')
-        #
+        client_version = client_data.get('client_version')
+        # ------------------------- #
+        if client_version > self.app.server_version:
+            self.app.server_version = client_version
+            #
+        if client_version == round(self.app.server_version - 0.1, 1):
+            self.send_data({
+                'status': 'notification',
+                'msg': f'Доступна новая версия клиента: {self.app.server_version}'
+            })
+        if client_version < round(self.app.server_version - 0.1, 1):
+            self.send_data({
+                'status': 'error',
+                'msg': f'Версия клиента устарела, доступна версия: {self.app.server_version}'
+            })
+            # return False
+        # ------------------------- #
         if self.app.get_handler(client_name) is not None:
             self.send_data({
                 'status': 'error',
-                'error': f'Имя {client_name} недоступно',
+                'msg': f'Имя {client_name} недоступно',
             })
             return False
         self.app.register_client(client_name, handler)
@@ -69,7 +85,7 @@ class ThreadedTCPRequestHandler:
             'client_name':  client_name,
         })
         return True
-        #
+    # --------------------------------------------------------------------------
 
     def handle(self):
         if self.authorize(self) is False:
@@ -85,9 +101,11 @@ class ThreadedTCPRequestHandler:
             #
             target_client_name = client_data.get('target_client_name')
             if self.app.get_handler(target_client_name) is None:
+                if target_client_name is None:
+                    continue
                 self.send_data({
                     'status': 'error',
-                    'error': f'Клиент "{target_client_name}" не подключён к серверу'
+                    'msg': f'Клиент "{target_client_name}" не подключён к серверу'
                 })
                 continue
             #

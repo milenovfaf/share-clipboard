@@ -1,8 +1,10 @@
+
 from PyQt5 import QtWidgets
-from PyQt5.QtWidgets import QApplication
 from pynput.keyboard import Controller, Key
 from pynput import keyboard
-import pyperclip
+import logging
+
+log = logging.getLogger(__name__)
 
 
 class HotkeysCopyPasteHandler(object):
@@ -14,9 +16,9 @@ class HotkeysCopyPasteHandler(object):
         assert callable(callback_on_copy)
         self.callback_on_copy = callback_on_copy
         self.callback_on_copy_share = callback_on_copy_share
-
+        # ----------------------------------------------------------------------
         self.clipboard = QtWidgets.QApplication.clipboard()
-
+        # ----------------------------------------------------------------------
         self.keyboard = Controller()
         self.kh = None
         self.connector = '\n'
@@ -59,19 +61,17 @@ class HotkeysCopyPasteHandler(object):
 
     def synchronizer_clipboard(self, received_clipboard_data):
         """ Синхронизация буфера между клиентами """
-        print('Обнаружено изменение буфера обмена')
+        log.info('Обнаружено изменение буфера обмена')
         if received_clipboard_data == self.list_clipboard_data[-1]:
             self.list_clipboard_data.append(received_clipboard_data)
             return
         clipboard_data = self.clipboard.text()
         if clipboard_data == self.list_clipboard_data[-1]:
             return
-        # if self.list_clipboard_data[-1] == '':
-        #     return
         self.list_clipboard_data.append(clipboard_data)
         self.callback_on_copy(clipboard_data)
 
-        print(self.list_clipboard_data)
+        log.info(self.list_clipboard_data)
 
         if len(self.list_clipboard_data) >= 50:
             del self.list_clipboard_data[:30]
@@ -80,7 +80,7 @@ class HotkeysCopyPasteHandler(object):
     def _copy_join(self):
         """ Копирование и соединение содержимого с содержимым предидущего
         копирования """
-        print('Обнаружена комбинация клавиш copy_join')
+        log.info('Обнаружена комбинация клавиш copy_join')
         with self.keyboard.pressed(Key.ctrl):
             self.keyboard.press('c')
             self.keyboard.release('c')
@@ -93,12 +93,12 @@ class HotkeysCopyPasteHandler(object):
         self.list_clipboard_data.append(joined_content)
         self.clipboard.setText(joined_content)  # Вызовит синхронизацию
         self.callback_on_copy(joined_content)
-        print(self.list_clipboard_data)
+        log.info(self.list_clipboard_data)
     #
 
     def _share_clipboard(self):
         """ Поделиться содержимым буфера обмена """
-        print('Обнаружена комбинация клавиш share_keys')
+        log.info('Обнаружена комбинация клавиш share_keys')
         clipboard_data = self.clipboard.text()
         #
         self.callback_on_copy_share(clipboard_data)
