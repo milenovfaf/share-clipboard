@@ -421,17 +421,42 @@ class UiMainWindow(object):
         self.client_name_for_share.setPlaceholderText(
             _translate("MainWindow", "Имя клиента"))
 
+#f55a44 red
+#499c54 green
+#287bde blue
+#cbcdc1 wite
+#ffc66d yellow
+
 
 class LogWindow(QtWidgets.QTextEdit):
-    newMessage = QtCore.pyqtSignal(str)
+    newMessage = QtCore.pyqtSignal(str, int)
 
     def __init__(self):
         super().__init__()
+        self.setGeometry(100, 100, 1300, 800)
         self.newMessage.connect(self.log)
 
-    @QtCore.pyqtSlot(str)
-    def log(self, message):
-        self.append(message)
+    @QtCore.pyqtSlot(str, int)
+    def log(self, message, level):
+        # скролл вниз ------------ #
+        cursor = self.textCursor()
+        cursor.movePosition(QTextCursor.End)
+        self.setTextCursor(cursor)
+        # ------------------------ #
+        color = '#cbcdc1'
+        if level == logging.DEBUG:
+            color = '#ffc66d'  # yellow
+        if level == logging.INFO:
+            self.setStyleSheet('color: #499c54;')  # green
+            color = '#499c54'  # green
+        if level == logging.WARNING:
+            self.setStyleSheet('color: #287bde;')  # blue
+            color = '#287bde'  # blue
+        if level == logging.ERROR:
+            self.setStyleSheet('color: #f55a44;')  # red
+            color = '#f55a44'  # red
+        self.setStyleSheet('background-color: #2b2b2b;')
+        self.append(f"<font color='{color}'>{message}</font>")
 
     def closeEvent(self, event):
         """ Перехват события закрытия окна """
@@ -506,8 +531,6 @@ class ShowUiMainWindow(QtWidgets.QMainWindow):
     #             QSystemTrayIcon.Information,
     #             1000
     #         )
-
-    # --------------------------------------------------------------------------
 
     # --------------------------------------------------------------------------
 

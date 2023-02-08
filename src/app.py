@@ -163,19 +163,22 @@ class App:
     def reconnect(self):
         """ Переподключение """
         while True:
+            time.sleep(0.5)
+            if self.remote.listen_thread.is_alive():
+                continue
+            log.info('Reconnect')
+            show_mag(self.gui, 'Нет подключения к серверу')
+            self.remote.disconnect()
+            # ------------------------------- #
+            self.remote = client.Client(
+                callback_server_data=self._callback_receive_clipboard_data,
+                callback_server_msg=self._callback_receive_msg
+            )  # ---------------------------- #
+            with error_interceptor(
+                    self.gui, success=True
+            ):
+                self.remote.connect(self.settings)
             time.sleep(5)
-            if self.remote.listen_thread.is_alive() is False:
-                show_mag(self.gui, 'Нет подключения к серверу')
-                self.remote.disconnect()
-                # ------------------------------- #
-                self.remote = client.Client(
-                    callback_server_data=self._callback_receive_clipboard_data,
-                    callback_server_msg=self._callback_receive_msg
-                )  # ---------------------------- #
-                with error_interceptor(
-                        self.gui, success=True
-                ):
-                    self.remote.connect(self.settings)
 
     # ------ Apply -------------------------------------------------------------
 
@@ -280,7 +283,9 @@ class LogHandler(logging.Handler):
 
     def emit(self, record):
         message = self.format(record)
-        self.log_window.log(message)
+        level = record.levelno
+        # self.log_window.log(message, level)
+        self.log_window.newMessage.emit(message, level)
 
 
 def main(file='settings.json'):
@@ -301,7 +306,7 @@ def main(file='settings.json'):
     console_handler.setLevel(logging.DEBUG)
     console_handler.setFormatter(formatter)
     # ------------------------------------------------- #
-    file_handler = logging.handlers.RotatingFileHandler('logs.log')
+    file_handler = logging.handlers.RotatingFileHandler('logs.log', maxBytes=1024)
     file_handler.setLevel(logging.DEBUG)
     file_handler.setFormatter(formatter)
     # ------------------------------------------------- #
@@ -309,10 +314,14 @@ def main(file='settings.json'):
     logger.addHandler(console_handler)
     logger.addHandler(file_handler)
     # ------------------------------------------------- #
-    app.start_app()
-    return_code = window.exec()
-    app.close_app()
-    sys.exit(return_code)
+    try:
+        app.start_app()
+        return_code = window.exec()
+        app.close_app()
+        sys.exit(return_code)
+    except Exception as e:
+        log.exception(e)
+        raise
 
 
 if __name__ == '__main__':

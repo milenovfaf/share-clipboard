@@ -2,7 +2,7 @@ FROM python:3.8-slim-buster
 
 WORKDIR /app/src
 
-COPY ./             /app/src
+COPY ./src/             /app/src
 
 
 EXPOSE 8001

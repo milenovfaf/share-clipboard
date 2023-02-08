@@ -1,4 +1,5 @@
 import json
+import random
 import re
 
 
@@ -14,6 +15,7 @@ def get_default_app_settings():
     return AppSettings(
         ip='45.141.77.236',
         port='7000',
+        client_name='user' + str(random.randint(1111, 9999)),
         copy_join_keys='<shift>+<ctrl>+c',
         connector_new_line_keys='<ctrl>+1',
         connector_space_bar_keys='<ctrl>+2',
