@@ -1,5 +1,6 @@
-
-from PyQt5 import QtWidgets
+import time
+import pyautogui
+from PyQt5 import QtWidgets, Qt, QtCore
 from pynput.keyboard import Controller, Key
 from pynput import keyboard
 import logging
@@ -62,16 +63,21 @@ class HotkeysCopyPasteHandler(object):
     def synchronizer_clipboard(self, received_clipboard_data):
         """ Синхронизация буфера между клиентами """
         log.info('Обнаружено изменение буфера обмена')
-        if received_clipboard_data == self.list_clipboard_data[-1]:
-            self.list_clipboard_data.append(received_clipboard_data)
+        clipboard_data = self.clipboard.text()  # Взять с буфера
+        #
+        if clipboard_data == received_clipboard_data:
+            self.list_clipboard_data.append(clipboard_data)
+            log.info(f'{list(reversed(self.list_clipboard_data))}')
             return
-        clipboard_data = self.clipboard.text()
+        #
         if clipboard_data == self.list_clipboard_data[-1]:
             return
+        #
         self.list_clipboard_data.append(clipboard_data)
         self.callback_on_copy(clipboard_data)
 
-        log.info(self.list_clipboard_data)
+        log.info(f'Сработала синхронизация: '
+                 f'{list(reversed(self.list_clipboard_data))}')
 
         if len(self.list_clipboard_data) >= 50:
             del self.list_clipboard_data[:30]
@@ -81,19 +87,28 @@ class HotkeysCopyPasteHandler(object):
         """ Копирование и соединение содержимого с содержимым предидущего
         копирования """
         log.info('Обнаружена комбинация клавиш copy_join')
-        with self.keyboard.pressed(Key.ctrl):
-            self.keyboard.press('c')
-            self.keyboard.release('c')
+        pyautogui.hotkey('ctrl', 'c')
+        # with self.keyboard.pressed(Key.ctrl):
+        #     self.keyboard.press('c')
+        #     self.keyboard.release('c')
         #
+        time.sleep(1)
         previous_content = self.list_clipboard_data[-2]
         new_content = self.list_clipboard_data[-1]
         content = previous_content, new_content
         joined_content = self.connector.join(content)
+        log.info(f'previous_content:{previous_content}'
+                 f'new_content:{new_content}'
+                 f'joined_content:{joined_content}')
+
         #
         self.list_clipboard_data.append(joined_content)
-        self.clipboard.setText(joined_content)  # Вызовит синхронизацию
+        # ---- Вызовит синхронизацию ---- #
+        self.clipboard.setText(joined_content, mode=self.clipboard.Clipboard)
+        # ------------------------------- #
         self.callback_on_copy(joined_content)
-        log.info(self.list_clipboard_data)
+        log.info(f'Сработал copy join: '
+                 f'{list(reversed(self.list_clipboard_data))}')
     #
 
     def _share_clipboard(self):
@@ -104,14 +119,17 @@ class HotkeysCopyPasteHandler(object):
         self.callback_on_copy_share(clipboard_data)
 
     def _connector_new_line(self) -> None:
+        log.info('Обнаружена комбинация клавиш connector_new_line')
         self.connector = '\n'
     #
 
     def _connector_space_bar(self) -> None:
+        log.info('Обнаружена комбинация клавиш connector_space_bar')
         self.connector = ' '
     #
 
     def _connector_none(self) -> None:
+        log.info('Обнаружена комбинация клавиш connector_none')
         self.connector = ''
     #
     # --------------------------------------------------------------------------

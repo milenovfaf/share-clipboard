@@ -18,41 +18,42 @@ from logging import handlers
 
 log = logging.getLogger(__name__)
 
+
 # ------------------------------------------------------------------------------
 
 
-def show_mag(gui, msg, success=None, popup=None):
-    if success:
-        gui.ui.label_error.setStyleSheet('color: #00CC00')  # Green
-        gui.ui.label_error.setText(msg)
-        gui.ui.label_error.update()
-        # log.info(msg)
-        return
-    gui.ui.label_error.setStyleSheet('color: #FF0000')  # Red
-    gui.ui.label_error.setText(msg)
-    gui.ui.label_error.update()
-    log.info(msg)
+def show_msg(gui, msg, success=False, popup=False):
     if popup:
         gui.tray_icon.showMessage(
             "Share Clipboard",
             msg,
+            QSystemTrayIcon.Information,
+            2000
         )
+    if success:
+        gui.ui.label_error.setStyleSheet('color: #00CC00')  # Green
+        gui.ui.label_error.setText(msg)
+        gui.ui.label_error.update()
+        return
+    gui.ui.label_error.setStyleSheet('color: #FF0000')  # Red
+    gui.ui.label_error.setText(msg)
+    gui.ui.label_error.update()
 
 
 @contextmanager
 def error_interceptor(gui, msg=None, success=False):
     """ Обработка ошибок """
     try:
-        show_mag(gui, msg='')
+        show_msg(gui, msg='')
         if success:
-            show_mag(gui, 'Подключено к серверу', success)
+            show_msg(gui, 'Подключено к серверу', success)
         yield None
     except (ConnectionError, ConnectionRefusedError) as e:
         log.exception(e)
-        show_mag(gui, 'Нет подключения к серверу')
+        show_msg(gui, 'Нет подключения к серверу')
     except Exception as e:
         log.exception(e)
-        show_mag(gui, f' {msg} ({e})')
+        show_msg(gui, f' {msg} ({e})')
     finally:
         pass
 
@@ -163,21 +164,21 @@ class App:
     def reconnect(self):
         """ Переподключение """
         while True:
-            time.sleep(0.5)
+            time.sleep(5)
             if self.remote.listen_thread.is_alive():
                 continue
             log.info('Reconnect')
-            show_mag(self.gui, 'Нет подключения к серверу')
-            self.remote.disconnect()
-            # ------------------------------- #
-            self.remote = client.Client(
-                callback_server_data=self._callback_receive_clipboard_data,
-                callback_server_msg=self._callback_receive_msg
-            )  # ---------------------------- #
             with error_interceptor(
                     self.gui, success=True
             ):
+                self.remote.disconnect()
+                # ------------------------------- #
+                self.remote = client.Client(
+                    callback_server_data=self._callback_receive_clipboard_data,
+                    callback_server_msg=self._callback_receive_msg
+                )  # ---------------------------- #
                 self.remote.connect(self.settings)
+
             time.sleep(5)
 
     # ------ Apply -------------------------------------------------------------
@@ -199,26 +200,22 @@ class App:
             )  # ---------------------------- #
             self.hotkey_handler.start(self.settings)
         #
-        if self.settings.client_name and self.settings.ip and self.settings.port:
-            with error_interceptor(
-                    self.gui, success=True
-            ):
-                self.remote.disconnect()
-                # ------------------------------- #
-                self.remote = client.Client(
-                    callback_server_data=self._callback_receive_clipboard_data,
-                    callback_server_msg=self._callback_receive_msg,
-                )  # ---------------------------- #
-                self.remote.connect(self.settings)
-            #
-        else:
-            with error_interceptor(
-                    self.gui, 'Не заданы обязательные поля'
-            ):
-                raise ValueError
+        if not self.settings.client_name and self.settings.ip and self.settings.port:
+            show_msg(self.gui, 'Не заданы обязательные поля')
+            return
+        #
+        with error_interceptor(
+                self.gui, success=True
+        ):
+            self.remote.disconnect()
+            # ------------------------------- #
+            self.remote = client.Client(
+                callback_server_data=self._callback_receive_clipboard_data,
+                callback_server_msg=self._callback_receive_msg,
+            )  # ---------------------------- #
+            self.remote.connect(self.settings)
             #
         #
-
     # ------ Send --------------------------------------------------------------
 
     @callback_error_alert
@@ -254,7 +251,9 @@ class App:
     def _callback_receive_clipboard_data(self, client_name, clipboard_data):
         """ Получение данных буфера обмена от сервера и синхронизация """
         self.received_clipboard_data = clipboard_data
-        self.clipboard.setText(clipboard_data)
+        # ---- Вызовит синхронизацию ---- #
+        self.clipboard.setText(clipboard_data, mode=self.clipboard.Clipboard)
+        # ------------------------------- #
         if client_name != self.settings.client_name_for_sync:
             with error_interceptor(
                     self.gui, success=True
@@ -270,7 +269,7 @@ class App:
     @callback_error_alert
     def _callback_receive_msg(self, msg, success=None, popup=None):
         """ Получение сообщений от клиента и сервера """
-        show_mag(self.gui, msg, success, popup=True)
+        show_msg(self.gui, msg, success, popup=True)
     #
 
 

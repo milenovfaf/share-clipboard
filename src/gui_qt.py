@@ -434,15 +434,11 @@ class LogWindow(QtWidgets.QTextEdit):
     def __init__(self):
         super().__init__()
         self.setGeometry(100, 100, 1300, 800)
+        self.setReadOnly(True)
         self.newMessage.connect(self.log)
 
     @QtCore.pyqtSlot(str, int)
     def log(self, message, level):
-        # скролл вниз ------------ #
-        cursor = self.textCursor()
-        cursor.movePosition(QTextCursor.End)
-        self.setTextCursor(cursor)
-        # ------------------------ #
         color = '#cbcdc1'
         if level == logging.DEBUG:
             color = '#ffc66d'  # yellow
@@ -456,7 +452,11 @@ class LogWindow(QtWidgets.QTextEdit):
             self.setStyleSheet('color: #f55a44;')  # red
             color = '#f55a44'  # red
         self.setStyleSheet('background-color: #2b2b2b;')
-        self.append(f"<font color='{color}'>{message}</font>")
+        self.append(f"<p style='color:{color}'>'{message}'</p>")
+        # скролл вниз ------------ #
+        cursor = self.textCursor()
+        cursor.movePosition(QTextCursor.End)
+        self.setTextCursor(cursor)
 
     def closeEvent(self, event):
         """ Перехват события закрытия окна """

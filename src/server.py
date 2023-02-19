@@ -1,8 +1,13 @@
+import logging
+import sys
 from socket import *
 from transport import JsonTransportProtocol
 import socket
 import threading
 import socketserver
+import logging
+from logging import handlers
+log = logging.getLogger(__name__)
 
 # ------------------------------------------------------------------------------
 
@@ -23,6 +28,9 @@ class ServerApp:
             #
             self.client_data[name] = handler
             self.client_data_map[handler] = name
+            log.debug(f'register_client - name: {name}, handler: {handler}, '
+                      f'client_data:{self.client_data}, '
+                      f'client_data_map: {self.client_data_map}')
         #
 
     def remove_client_index(self, handler):
@@ -33,10 +41,18 @@ class ServerApp:
                 #
             name = self.client_data_map.pop(handler)
             self.client_data.pop(name)
+            log.debug(f'remove_client_index - name: {name}, handler: {handler} '
+                      f'client_data: {self.client_data}, '
+                      f'client_data_map: {self.client_data_map}')
         #
 
     def get_handler(self, client_name):
         handler = self.client_data.get(client_name, None)
+        log.debug(f'get_handler - '
+                  f'client_name: {client_name}, '
+                  f'client_data: {self.client_data}, '
+                  f'client_data_map: {self.client_data_map}, '
+                  f'handler: {handler}')
         return handler
         #
 # ------------------------------------------------------------------------------
@@ -100,9 +116,9 @@ class ThreadedTCPRequestHandler:
                 break
             #
             target_client_name = client_data.get('target_client_name')
+            if target_client_name is None:
+                continue
             if self.app.get_handler(target_client_name) is None:
-                if target_client_name is None:
-                    continue
                 self.send_data({
                     'status': 'error',
                     'msg': f'Клиент "{target_client_name}" не подключён к серверу'
@@ -123,9 +139,28 @@ class ThreadedTCPRequestHandler:
 
 
 def main():
+    app = ServerApp()
+    # ------------------------------------------------- #
+    logger = logging.getLogger()
+    logger.setLevel(logging.DEBUG)
+    # ------------------------------------------------- #
+    formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    # ------------------------------------------------- #
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setLevel(logging.DEBUG)
+    console_handler.setFormatter(formatter)
+    # ------------------------------------------------- #
+    file_handler = logging.handlers.RotatingFileHandler('server_logs.log', maxBytes=1024)
+    file_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(formatter)
+    # ------------------------------------------------- #
+    logger.addHandler(console_handler)
+    logger.addHandler(file_handler)
+    # ------------------------------------------------- #
+
     HOST, PORT = '0.0.0.0', 7006
     #
-    app = ServerApp()
 
     def _socket_handler(request, client_address, server):
         handler = ThreadedTCPRequestHandler(request, client_address, server, app)
@@ -135,7 +170,6 @@ def main():
             handler.finish()
         #
     #
-
     with ThreadedTCPServer((HOST, PORT), _socket_handler) as server:
         server.serve_forever()
     #

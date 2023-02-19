@@ -17,14 +17,13 @@ class TransportProtocol:
 
     def sender(self, text):
         self._msg_counter = self._msg_counter + 1
-        log.debug(f'{self._msg_counter} sender {text}')
+        log.debug(f'{self._msg_counter} - SENDER - {text}')
         text = bytes(text, 'utf-8')
         # Отправляем пакет 4 байта, хранящие длинну сообщения + само сообщение
-        count_send = self.sock.sendall(
+        self.sock.sendall(
             # https://tirinox.ru/python-struct/
             struct.pack('>I', len(text)) + text
         )
-        log.debug(f'{self._msg_counter}// sender {count_send}')
     #
 
     # Вспомогательная функция
@@ -36,11 +35,11 @@ class TransportProtocol:
             # Читаем кусок не более, чем недостаёт до длинны n
             packet = self.sock.recv(n - len(received_data))
             if not packet:
-                print(f'not packet')
+                log.debug(f'Not packet')
                 return None
             received_data += packet
         #
-        log.debug(f'{self._msg_counter}//recv {n} bytes == {received_data}')
+        # log.debug(f'{self._msg_counter} - RECV -{n} bytes == {received_data}')
         return received_data
     #
 
@@ -54,6 +53,7 @@ class TransportProtocol:
         payload_len = struct.unpack('>I', length_target_data)[0]
         # Декодируем
         result = self._recv_packets(payload_len)
+        log.debug(f'{self._msg_counter} - RECV - {payload_len} bytes == {result}')
         result = result.decode()
         return result
     #

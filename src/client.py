@@ -4,7 +4,6 @@ import app_settings
 from transport import JsonTransportProtocol
 import logging
 from socket import timeout as ReadTimeoutError
-import time
 
 log = logging.getLogger(__name__)
 
@@ -85,6 +84,8 @@ class Client:
 
     def _stop_listening(self, join=True):
         if join:
+            print('_stop_listening ', join)
+            print('self.listen_thread.is_alive()', self.listen_thread.is_alive())
             self.listen_thread.join()
         #
     # --------------------------------------------------------------------------
@@ -124,9 +125,12 @@ class Client:
                 'status': 'disconnect',
             })
         finally:
+            print('self.remote.disconnect()  0 _stop_listening')
             self._stop_listening(join)
             #
+            print('self.remote.disconnect()  1 sock.close')
             self.transport.sock.close()
+            print('self.remote.disconnect()  2 SUCCESS ')
         #
     # --------------------------------------------------------------------------
 
