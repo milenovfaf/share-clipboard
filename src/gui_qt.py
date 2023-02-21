@@ -380,46 +380,46 @@ class UiMainWindow(object):
         MainWindow.setWindowTitle(_translate("MainWindow", "Share Сlipboard"))
         self.ip.setPlaceholderText(_translate("MainWindow", " 127.0.0.1 *"))
         self.port.setPlaceholderText(_translate("MainWindow", " 7000 *"))
-        self.label_ip.setText(_translate("MainWindow",
-                                         "<html><head/><body><p>Адрес сервера</p></body></html>"))
+        self.label_ip.setText(_translate(
+            "MainWindow", "<html><head/><body><p>Адрес сервера</p></body></html>"))
         self.button_apply.setText(_translate("MainWindow", "Применить"))
         self.button_apply.setShortcut(_translate("MainWindow", "1"))
-        self.label_port.setText(_translate("MainWindow",
-                                           "<html><head/><body><p>Порт</p></body></html>"))
+        self.label_port.setText(_translate(
+            "MainWindow", "<html><head/><body><p>Порт</p></body></html>"))
         self.copy_join_keys.setPlaceholderText(
             _translate("MainWindow", " <ctrl>+<shift>+c"))
-        self.label_copy_join_keys.setText(_translate("MainWindow",
-                                                     "<html><head/><body><p><span style=\" font-size:12pt;\">Копирование +</span></p></body></html>"))
+        self.label_copy_join_keys.setText(_translate(
+            "MainWindow", "<html><head/><body><p><span style=\" font-size:12pt;\">Копирование +</span></p></body></html>"))
         self.copy_share_keys.setPlaceholderText(
             _translate("MainWindow", " <ctrl>+<alt>+p"))
-        self.label_copy_share_keys.setText(_translate("MainWindow",
-                                                      "<html><head/><body><p><span style=\" font-size:12pt;\">Поделиться</span></p></body></html>"))
+        self.label_copy_share_keys.setText(_translate(
+            "MainWindow", "<html><head/><body><p><span style=\" font-size:12pt;\">Поделиться</span></p></body></html>"))
         self.label_error.setText(
             _translate("MainWindow", "<html><head/><body><p/></body></html>"))
         self.client_name.setPlaceholderText(
             _translate("MainWindow", " Ваше имя *"))
-        self.label_client_name.setText(_translate("MainWindow",
-                                                  "<html><head/><body><p><span style=\" font-size:12pt;\">Имя</span></p></body></html>"))
-        self.label_client_name_for_sync.setText(_translate("MainWindow",
-                                                           "<html><head/><body><p>Синхронизация</p></body></html>"))
+        self.label_client_name.setText(_translate(
+            "MainWindow", "<html><head/><body><p><span style=\" font-size:12pt;\">Имя</span></p></body></html>"))
+        self.label_client_name_for_sync.setText(_translate(
+            "MainWindow", "<html><head/><body><p>Синхронизация</p></body></html>"))
         self.client_name_for_sync.setPlaceholderText(
-            _translate("MainWindow", "Имя клиента"))
+            _translate("MainWindow", "Имя клиента, ..."))
         self.connector_enter_keys.setPlaceholderText(
             _translate("MainWindow", " <ctrl>+1"))
-        self.label_connector_enter_keys.setText(_translate("MainWindow",
-                                                           "<html><head/><body><p>Новая строка</p></body></html>"))
-        self.label_connector_space_bar_keys.setText(_translate("MainWindow",
-                                                               "<html><head/><body><p>Пробел</p></body></html>"))
+        self.label_connector_enter_keys.setText(_translate(
+            "MainWindow", "<html><head/><body><p>Новая строка</p></body></html>"))
+        self.label_connector_space_bar_keys.setText(_translate(
+            "MainWindow", "<html><head/><body><p>Пробел</p></body></html>"))
         self.connector_space_bar_keys.setPlaceholderText(
             _translate("MainWindow", " <ctrl>+2"))
         self.connector_none_keys.setPlaceholderText(
             _translate("MainWindow", " <ctrl>+3"))
-        self.label_connector_none.setText(_translate("MainWindow",
-                                                     "<html><head/><body><p><span style=\" font-size:12pt;\">Слитно</span></p></body></html>"))
-        self.label_client_name_for_share.setText(_translate("MainWindow",
-                                                            "<html><head/><body><p><span style=\" font-size:12pt;\">Делиться c:</span></p></body></html>"))
+        self.label_connector_none.setText(_translate(
+            "MainWindow", "<html><head/><body><p><span style=\" font-size:12pt;\">Слитно</span></p></body></html>"))
+        self.label_client_name_for_share.setText(_translate(
+            "MainWindow", "<html><head/><body><p><span style=\" font-size:12pt;\">Делиться c:</span></p></body></html>"))
         self.client_name_for_share.setPlaceholderText(
-            _translate("MainWindow", "Имя клиента"))
+            _translate("MainWindow", "Имя клиента, ..."))
 
 
 # f55a44 red
@@ -437,6 +437,7 @@ class LogWindow(QtWidgets.QTextEdit):
         self.setGeometry(100, 100, 1300, 800)
         self.setReadOnly(True)
         self.newMessage.connect(self.log)
+        self.message = None
 
     @QtCore.pyqtSlot(str, int)
     def log(self, message, level):
@@ -452,8 +453,15 @@ class LogWindow(QtWidgets.QTextEdit):
         if level == logging.ERROR:
             self.setStyleSheet('color: #f55a44;')  # red
             color = '#f55a44'  # red
+        # ------------------------------------------------------------ #
         self.setStyleSheet('background-color: #2b2b2b;')
-        self.append(f"<p style='color:{color}'>'{message}'</p>")
+        self.message = f"<span style='color:{color}'>'{message}'</span>"
+        # ------------------------------------------------------------ #
+        self.message = self.message.replace(
+            "{", "</span><span style='color: #9D57AE'>{"
+        )
+        # ------------------------------------------------------------ #
+        self.append(self.message)
         # скролл вниз ------------ #
         cursor = self.textCursor()
         cursor.movePosition(QTextCursor.End)
@@ -561,11 +569,9 @@ class ShowUiMainWindow(QtWidgets.QMainWindow):
         self.ui.ip.setText(settings.ip)
         self.ui.port.setText(settings.port)
         self.ui.client_name.setText(settings.client_name)
-        # self.ui.client_name_for_sync.setText(settings.client_name_for_sync)
         self.ui.client_name_for_sync.setText(
             self._list_to_string(settings.client_name_for_sync)
         )
-        # self.ui.client_name_for_share.setText(settings.client_name_for_share)
         self.ui.client_name_for_share.setText(
             self._list_to_string(settings.client_name_for_share)
         )
@@ -620,9 +626,7 @@ class ShowUiMainWindow(QtWidgets.QMainWindow):
             ip=self.ui.ip.text(),
             port=self.ui.port.text(),
             client_name=self.ui.client_name.text(),
-            # client_name_for_sync=self.ui.client_name_for_sync.text(),
             client_name_for_sync=client_name_for_sync,
-            # client_name_for_share=self.ui.client_name_for_share.text(),
             client_name_for_share=client_name_for_share,
             copy_join_keys=self.ui.copy_join_keys.text(),
             share_keys=self.ui.copy_share_keys.text(),

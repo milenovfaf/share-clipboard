@@ -26,6 +26,7 @@ class ServerApp:
         self.client_data_map = {}
 
     def register_client(self, name, handler):
+        log.debug(f'ServerApp.register_client {name} {handler}')
         with self.lock:
             #
             self.client_data[name] = handler
@@ -36,17 +37,22 @@ class ServerApp:
         #
 
     def remove_client_index(self, handler):
+        log.debug(f'ServerApp.remove_client_index {handler}')
         assert isinstance(handler, ThreadedTCPRequestHandler)
         with self.lock:
             if handler not in self.client_data_map:
+                log.debug(f'ServerApp.remove_client_index '
+                          f'handler does not exists {handler}')
                 return
                 #
             name = self.client_data_map.pop(handler)
+            log.debug(f'ServerApp.remove_client_index {name} {handler}')
             self.client_data.pop(name)
             log.debug(f'remove_client_index - name: {name}, handler: {handler} '
                       f'client_data: {self.client_data}, '
                       f'client_data_map: {self.client_data_map}')
         #
+        log.debug(f'ServerApp.remove_client_index success, end.')
 
     def get_handler(self, client_name):
         handler = self.client_data.get(client_name, None)
@@ -55,6 +61,7 @@ class ServerApp:
                   f'client_data: {self.client_data}, '
                   f'client_data_map: {self.client_data_map}, '
                   f'handler: {handler}')
+        log.debug(f'ServerApp.get_handler {client_name} {handler}')
         return handler
         #
 # ------------------------------------------------------------------------------
@@ -62,6 +69,7 @@ class ServerApp:
 
 class ThreadedTCPRequestHandler:
     def __init__(self, request, client_address, server, app):
+        self.client_address = client_address
         assert isinstance(request, socket.socket)
         assert isinstance(server, ThreadedTCPServer)
         assert isinstance(app, ServerApp)
@@ -71,15 +79,17 @@ class ThreadedTCPRequestHandler:
     # --------------------------------------------------------------------------
 
     def authorize(self, handler) -> bool:
+        log.debug(f'ThreadedTCPRequestHandler.authorize {handler}')
         assert isinstance(handler, ThreadedTCPRequestHandler)
         client_data: dict = self.transport.recv()
         # ------------------------- #
         client_name = client_data.get('client_name')
         client_version = client_data.get('client_version')
+        log.debug(f'ThreadedTCPRequestHandler.authorize {client_name} {handler} {client_version}')
         # ------------------------- #
         if client_version > self.app.server_version:
             self.app.server_version = client_version
-            #
+        #
         if client_version == round(self.app.server_version - 0.1, 1):
             self.send_data({
                 'status': 'notification',
@@ -93,12 +103,14 @@ class ThreadedTCPRequestHandler:
             # return False
         # ------------------------- #
         if self.app.get_handler(client_name) is not None:
+            log.debug(f'ThreadedTCPRequestHandler.authorize Имя {client_name} недоступно')
             self.send_data({
                 'status': 'error',
                 'msg': f'Имя {client_name} недоступно',
             })
             return False
         self.app.register_client(client_name, handler)
+        log.debug(f'ThreadedTCPRequestHandler.authorize success register_client {client_name} {handler}')
         self.send_data({
             'status':      'success',
             'client_name':  client_name,
@@ -108,10 +120,13 @@ class ThreadedTCPRequestHandler:
 
     def handle(self):
         if self.authorize(self) is False:
+            log.debug(f'ThreadedTCPRequestHandler.handle nas no authorize {self} {self.client_address}')
             return
         #
+        log.debug(f'ThreadedTCPRequestHandler.handle [while True] {self} {self.client_address}')
         while True:
             client_data: dict = self.transport.recv()
+            log.debug(f'ThreadedTCPRequestHandler.handle client_data {client_data} {self} {self.client_address}')
             #
             client_status = client_data.get('status')
             if client_status == 'disconnect':
@@ -132,21 +147,20 @@ class ThreadedTCPRequestHandler:
                     self.app.get_handler(target_name).send_data(
                         client_data
                     )
-
+        log.debug(f'ThreadedTCPRequestHandler.handle [while True END] {self} {self.client_address}')
 
     def send_data(self, data):
+        log.debug(f'ThreadedTCPRequestHandler.send_data {self} {self.client_address} {data} ')
         self.transport.sender(data)
         #
 
     def finish(self):
+        log.debug(f'ThreadedTCPRequestHandler.finish {self} {self.client_address}  remove_client_index')
         self.app.remove_client_index(self)
 
 # ------------------------------------------------------------------------------
 
-
-def main():
-    app = ServerApp()
-    # ------------------------------------------------- #
+def init_logging():
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)
     # ------------------------------------------------- #
@@ -163,10 +177,17 @@ def main():
     # ------------------------------------------------- #
     logger.addHandler(console_handler)
     logger.addHandler(file_handler)
-    # ------------------------------------------------- #
+
+
+def main():
+    init_logging()
+    #
+    log.debug(f'main BEGIN ')
+    app = ServerApp()
 
     HOST, PORT = '0.0.0.0', 7006
     #
+    log.debug(f'main HOST, PORT {HOST, PORT} ')
 
     def _socket_handler(request, client_address, server):
         handler = ThreadedTCPRequestHandler(request, client_address, server, app)
@@ -178,7 +199,14 @@ def main():
         #
     #
     with ThreadedTCPServer((HOST, PORT), _socket_handler) as server:
-        server.serve_forever()
+        log.debug(f'main serve_forever ')
+        try:
+            server.serve_forever()
+        except Exception as e:
+            log.exception(e)
+            raise e
+        finally:
+            log.debug(f'main END. ')
     #
 
 

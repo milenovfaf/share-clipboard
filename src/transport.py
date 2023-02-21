@@ -53,15 +53,16 @@ class TransportProtocol:
         payload_len = struct.unpack('>I', length_target_data)[0]
         # Декодируем
         result = self._recv_packets(payload_len)
-        log.debug(f'{self._msg_counter} - RECV - {payload_len} bytes == {result}')
+
         result = result.decode()
+        log.debug(f'{self._msg_counter} - RECV - {payload_len} bytes == {result}')
         return result
     #
 
 
 class JsonTransportProtocol(TransportProtocol):
     def sender(self, data):
-        dump = json.dumps(data)
+        dump = json.dumps(data, indent=2)
         return super(JsonTransportProtocol, self).sender(dump)
 
     def recv(self):

@@ -78,7 +78,7 @@ class HotkeysCopyPasteHandler(object):
         self.callback_on_copy(clipboard_data)
 
         log.info(f'Сработала синхронизация: '
-                 f'{list(reversed(self.list_clipboard_data))}')
+                 f'{list((self.list_clipboard_data[-3:]))}')
 
         if len(self.list_clipboard_data) >= 50:
             del self.list_clipboard_data[:30]
@@ -87,7 +87,7 @@ class HotkeysCopyPasteHandler(object):
     def _copy_join(self):
         """ Копирование и соединение содержимого с содержимым предидущего
         копирования """
-        log.info('Обнаружена комбинация клавиш copy_join')
+        log.info('Обнаружена комбинация клавиш COPY_JOIN')
         # pyautogui.hotkey('ctrl', 'c')
         with self.keyboard.pressed(Key.ctrl):
             self.keyboard.press('c')
@@ -98,9 +98,9 @@ class HotkeysCopyPasteHandler(object):
         new_content = self.list_clipboard_data[-1]
         content = previous_content, new_content
         joined_content = self.connector.join(content)
-        log.info(f'previous_content:{previous_content}'
-                 f'new_content:{new_content}'
-                 f'joined_content:{joined_content}')
+        log.info(f'previous_content: {previous_content}'
+                 f'new_content: {new_content}'
+                 f'joined_content: {joined_content}')
 
         #
         self.list_clipboard_data.append(joined_content)

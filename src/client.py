@@ -32,16 +32,19 @@ class Client:
         def msg_server_handler():
             """ Получение данных от сервера """
             #
+            log.debug(f'Client.msg_server_handler - while event')
             self.transport.settimeout(0.5)
             #
             while self._is_listening.is_set() is True:
                 try:
                     server_data = self.transport.recv()
+                    log.debug(f'Client.msg_server_handler - server_data: {server_data} ')
                 except ReadTimeoutError as e:
                     # log.exception(e)
                     continue
                 #
                 if not server_data:
+                    log.debug(f'Client.msg_server_handler - not server_data - BREAK')
                     break
                 #
                 if server_data.get('status') in ('error', 'notification'):
@@ -59,6 +62,7 @@ class Client:
                         client_name, clipboard_content
                     )
             #
+            log.debug(f'Client.msg_server_handler - END thread')
             self._is_listening.clear()
         #
         self.listen_thread = Thread(
@@ -85,6 +89,7 @@ class Client:
     # --------------------------------------------------------------------------
 
     def connect(self, settings: app_settings.AppSettings) -> None:
+        log.debug(f'Client.connect')
         self.settings = settings
         self.transport.sock.connect((settings.ip, int(settings.port)))
         log.info(f'Подключено к: {settings.ip}:{settings.port}')
@@ -110,10 +115,12 @@ class Client:
         if not self.is_connected:
             raise RuntimeError('Сначала нужно подключиться к серверу')
         #
+        log.debug(f'Client.connect - SUCCESS')
         self._is_listening.set()
         self.listen_thread.start()
 
     def disconnect(self, join=True):
+        log.debug(f'Client.disconnect ')
         if not self.is_connected:
             return
         #
@@ -132,11 +139,8 @@ class Client:
             log.exception(e)
             pass
         finally:
-            #
-            # self._stop_listening(join)
-            print('self.remote.disconnect()  1 sock.close')
             self.transport.sock.close()
-            print('self.remote.disconnect()  2 SUCCESS ')
+            log.debug(f'Client.disconnect - END')
         #
     # --------------------------------------------------------------------------
 

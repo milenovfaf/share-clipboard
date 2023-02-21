@@ -18,7 +18,7 @@ def get_default_app_settings():
         client_name='user' + str(random.randint(1111, 9999)),
         client_name_for_sync=[],
         client_name_for_share=[],
-        copy_join_keys='<shift>+<ctrl>+c',
+        # copy_join_keys='<shift>+<ctrl>+k',
         connector_new_line_keys='<ctrl>+1',
         connector_space_bar_keys='<ctrl>+2',
         connector_none_keys='<ctrl>+3',
@@ -118,4 +118,3 @@ class AppSettings:
         #
         data = json.loads(dump)
         return cls.from_dict(data)
-
