@@ -22,13 +22,13 @@ log = logging.getLogger(__name__)
 # ------------------------------------------------------------------------------
 
 
-def show_msg(gui, msg, success=False, popup=False):
+def show_msg(gui, msg, success=False, popup=False, button=False):
     if popup:
         gui.tray_icon.showMessage(
             "Share Clipboard",
             msg,
             QSystemTrayIcon.Information,
-            2000
+            5000
         )
     if success:
         gui.ui.label_error.setStyleSheet('color: #00CC00')  # Green
@@ -120,18 +120,19 @@ class App:
         )
         # ----------------------------------------------------------------------
         self.settings = None
-        self.received_clipboard_data = None
+        self.received_sync_clipboard_data = None
+        self.received_share_clipboard_data = None
         # ------ Буфер ---------------------------------------------------------
         self.clipboard = QtWidgets.QApplication.clipboard()
         # Если содержимое буфера обмена изменилось
         self.clipboard.dataChanged.connect(
             lambda: self.hotkey_handler.synchronizer_clipboard(
-                self.received_clipboard_data
+                self.received_sync_clipboard_data
             ))
         # ----------------------------------------------------------------------
-        self.reconnection = Thread(
-            target=self.reconnect
-        )
+        # self.reconnection = Thread(
+        #     target=self.reconnect
+        # )
         # ----------------------------------------------------------------------
 
     def start_app(self):
@@ -153,7 +154,7 @@ class App:
                     self.gui, success=True
             ):
                 self.remote.connect(self.settings)
-        self.reconnection.start()
+        # self.reconnection.start()
 
     def close_app(self):
         self.remote.disconnect()
@@ -161,25 +162,25 @@ class App:
 
     # ------ Reconnect ---------------------------------------------------------
 
-    def reconnect(self):
-        """ Переподключение """
-        while True:
-            time.sleep(5)
-            if self.remote.listen_thread.is_alive():
-                continue
-            log.info('Reconnect')
-            with error_interceptor(
-                    self.gui, success=True
-            ):
-                self.remote.disconnect()
-                # ------------------------------- #
-                self.remote = client.Client(
-                    callback_server_data=self._callback_receive_clipboard_data,
-                    callback_server_msg=self._callback_receive_msg
-                )  # ---------------------------- #
-                self.remote.connect(self.settings)
-
-            time.sleep(5)
+    # def reconnect(self):
+    #     """ Переподключение """
+    #     while True:
+    #         time.sleep(5)
+    #         if self.remote.listen_thread.is_alive():
+    #             continue
+    #         log.info('Reconnect')
+    #         with error_interceptor(
+    #                 self.gui, success=True
+    #         ):
+    #             self.remote.disconnect()
+    #             # ------------------------------- #
+    #             self.remote = client.Client(
+    #                 callback_server_data=self._callback_receive_clipboard_data,
+    #                 callback_server_msg=self._callback_receive_msg
+    #             )  # ---------------------------- #
+    #             self.remote.connect(self.settings)
+    #
+    #         time.sleep(5)
 
     # ------ Apply -------------------------------------------------------------
 
@@ -250,21 +251,29 @@ class App:
     @callback_error_alert
     def _callback_receive_clipboard_data(self, client_name, clipboard_data):
         """ Получение данных буфера обмена от сервера и синхронизация """
-        self.received_clipboard_data = clipboard_data
+        if clipboard_data == self.clipboard.text():
+            return
+        #
+        if client_name not in self.settings.client_name_for_sync:
+            self.received_share_clipboard_data = clipboard_data
+            msg = f'Получены данные от: {client_name}'
+            show_msg(self.gui, msg, success=True, popup=True)
+            return
+        #
+        self.received_sync_clipboard_data = clipboard_data
         # ---- Вызовит синхронизацию ---- #
         self.clipboard.setText(clipboard_data, mode=self.clipboard.Clipboard)
         # ------------------------------- #
-        if client_name != self.settings.client_name_for_sync:
-            with error_interceptor(
-                    self.gui, success=True
-            ):
-                self.remote.send_clipboard_content(
-                    self.settings.client_name,
-                    self.settings.client_name_for_sync,
-                    clipboard_data,
-                )
-            #
-        #
+        # if client_name != self.settings.client_name_for_sync:
+        #     with error_interceptor(
+        #             self.gui, success=True
+        #     ):
+        #         self.remote.send_clipboard_content(
+        #             self.settings.client_name,
+        #             self.settings.client_name_for_sync,
+        #             clipboard_data,
+        #         )
+        #     #
 
     @callback_error_alert
     def _callback_receive_msg(self, msg, success=None, popup=None):

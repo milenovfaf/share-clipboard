@@ -1,5 +1,5 @@
 import time
-import pyautogui
+# import pyautogui
 from PyQt5 import QtWidgets, Qt, QtCore
 from pynput.keyboard import Controller, Key
 from pynput import keyboard
@@ -87,10 +87,10 @@ class HotkeysCopyPasteHandler(object):
         """ Копирование и соединение содержимого с содержимым предидущего
         копирования """
         log.info('Обнаружена комбинация клавиш copy_join')
-        pyautogui.hotkey('ctrl', 'c')
-        # with self.keyboard.pressed(Key.ctrl):
-        #     self.keyboard.press('c')
-        #     self.keyboard.release('c')
+        # pyautogui.hotkey('ctrl', 'c')
+        with self.keyboard.pressed(Key.ctrl):
+            self.keyboard.press('c')
+            self.keyboard.release('c')
         #
         time.sleep(1)
         previous_content = self.list_clipboard_data[-2]

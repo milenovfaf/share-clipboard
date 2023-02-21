@@ -71,6 +71,7 @@ class ThreadedTCPRequestHandler:
     def authorize(self, handler) -> bool:
         assert isinstance(handler, ThreadedTCPRequestHandler)
         client_data: dict = self.transport.recv()
+        # ------------------------- #
         client_name = client_data.get('client_name')
         client_version = client_data.get('client_version')
         # ------------------------- #
@@ -115,17 +116,25 @@ class ThreadedTCPRequestHandler:
                 self.app.remove_client_index(self)
                 break
             #
-            target_client_name = client_data.get('target_client_name')
-            if target_client_name is None:
+            target_client_names = client_data.get('target_client_name')
+            # if target_client_name is None:
+            if not target_client_names:
                 continue
-            if self.app.get_handler(target_client_name) is None:
-                self.send_data({
-                    'status': 'error',
-                    'msg': f'Клиент "{target_client_name}" не подключён к серверу'
-                })
-                continue
+
+            for target_name in target_client_names:
+                if self.app.get_handler(target_name) is not None:
+                    self.app.get_handler(target_name).send_data(
+                        client_data
+                    )
+
+            # if self.app.get_handler(target_client_name) is None:
+            #     self.send_data({
+            #         'status': 'error',
+            #         'msg': f'Клиент "{target_client_name}" не подключён к серверу'
+            #     })
+            #     continue
             #
-            self.app.get_handler(target_client_name).send_data(client_data)
+            # self.app.get_handler(target_client_names).send_data(client_data)
         #
 
     def send_data(self, data):

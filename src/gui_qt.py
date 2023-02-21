@@ -421,11 +421,12 @@ class UiMainWindow(object):
         self.client_name_for_share.setPlaceholderText(
             _translate("MainWindow", "Имя клиента"))
 
-#f55a44 red
-#499c54 green
-#287bde blue
-#cbcdc1 wite
-#ffc66d yellow
+
+# f55a44 red
+# 499c54 green
+# 287bde blue
+# cbcdc1 wite
+# ffc66d yellow
 
 
 class LogWindow(QtWidgets.QTextEdit):
@@ -546,13 +547,23 @@ class ShowUiMainWindow(QtWidgets.QMainWindow):
 
     # --------------------------------------------------------------------------
 
+    @staticmethod
+    def _list_to_string(value):
+        return ', '.join(value)
+
     def _set_settings(self, settings: app_settings.AppSettings, update=True):
         """ Вывод имеющихся параметров в поля ввода если они есть """
         self.ui.ip.setText(settings.ip)
         self.ui.port.setText(settings.port)
         self.ui.client_name.setText(settings.client_name)
-        self.ui.client_name_for_sync.setText(settings.client_name_for_sync)
-        self.ui.client_name_for_share.setText(settings.client_name_for_share)
+        # self.ui.client_name_for_sync.setText(settings.client_name_for_sync)
+        self.ui.client_name_for_sync.setText(
+            self._list_to_string(settings.client_name_for_sync)
+        )
+        # self.ui.client_name_for_share.setText(settings.client_name_for_share)
+        self.ui.client_name_for_share.setText(
+            self._list_to_string(settings.client_name_for_share)
+        )
         self.ui.copy_join_keys.setText(settings.copy_join_keys)
         self.ui.copy_share_keys.setText(settings.share_keys)
         self.ui.connector_space_bar_keys.setText(
@@ -573,12 +584,21 @@ class ShowUiMainWindow(QtWidgets.QMainWindow):
 
     def apply_parameters(self) -> None:
         """ Применение параметров """
+        client_name_for_sync = self.ui.client_name_for_sync.text()
+        if not client_name_for_sync:
+            client_name_for_sync = []
+        client_name_for_share = self.ui.client_name_for_share.text()
+        if not client_name_for_share:
+            client_name_for_share = []
+
         new_settings = app_settings.AppSettings(
             ip=self.ui.ip.text(),
             port=self.ui.port.text(),
             client_name=self.ui.client_name.text(),
-            client_name_for_sync=self.ui.client_name_for_sync.text(),
-            client_name_for_share=self.ui.client_name_for_share.text(),
+            # client_name_for_sync=self.ui.client_name_for_sync.text(),
+            client_name_for_sync=client_name_for_sync,
+            # client_name_for_share=self.ui.client_name_for_share.text(),
+            client_name_for_share=client_name_for_share,
             copy_join_keys=self.ui.copy_join_keys.text(),
             share_keys=self.ui.copy_share_keys.text(),
             connector_space_bar_keys=self.ui.connector_space_bar_keys.text(),

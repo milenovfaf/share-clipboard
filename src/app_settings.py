@@ -16,6 +16,8 @@ def get_default_app_settings():
         ip='45.141.77.236',
         port='7000',
         client_name='user' + str(random.randint(1111, 9999)),
+        client_name_for_sync=[],
+        client_name_for_share=[],
         copy_join_keys='<shift>+<ctrl>+c',
         connector_new_line_keys='<ctrl>+1',
         connector_space_bar_keys='<ctrl>+2',
@@ -27,21 +29,35 @@ def str_validator(value):
     if value is None:
         return None
     #
+    if isinstance(value, list):
+        return value
+    #
     assert isinstance(value, str)
-    value = re.sub(r'\s+', ' ', value)
-    value = value.strip()
+    # value = re.sub(r'\s+', '', value)
+    # value = value.strip()
+    value = value.replace(' ', '').replace('\t', '')
     if value == '':
         return None
     #
     return value
 
 
+def string_to_list(value):
+    if isinstance(value, list):
+        return value
+    #
+    if value is not None:
+        value = value.split(',')
+        return value
+    #
+
+
 class AppSettings:
     def __init__(
             self,
             client_name:                str = None,
-            client_name_for_sync:       str = None,
-            client_name_for_share:      str = None,
+            client_name_for_sync=None,
+            client_name_for_share=None,
             ip:                         str = None,
             port:                       str = None,
             copy_join_keys:             str = None,
@@ -52,8 +68,10 @@ class AppSettings:
     ):
         self.client_version = 0.3
         self.client_name = str_validator(client_name)
-        self.client_name_for_sync = str_validator(client_name_for_sync)
-        self.client_name_for_share = str_validator(client_name_for_share)
+        # self.client_name_for_sync = str_validator(client_name_for_sync)
+        self.client_name_for_sync = string_to_list(str_validator(client_name_for_sync))
+        # self.client_name_for_share = str_validator(client_name_for_share)
+        self.client_name_for_share = string_to_list(str_validator(client_name_for_share))
         self.ip = str_validator(ip)
         self.port = str_validator(port)
         self.copy_join_keys = str_validator(copy_join_keys)
