@@ -54,9 +54,10 @@ class Client:
                 client_name = server_data.get('client_name')
                 clipboard_content = server_data.get('client_data')
                 #
-                callback_server_data(
-                    client_name, clipboard_content
-                )
+                if client_name:
+                    callback_server_data(
+                        client_name, clipboard_content
+                    )
             #
             self._is_listening.clear()
         #
@@ -74,13 +75,6 @@ class Client:
         return self._is_listening.is_set()
 
     # --------------------------------------------------------------------------
-
-    def _start_listening(self) -> None:
-        if not self.is_connected:
-            raise RuntimeError('Сначала нужно подключиться к серверу')
-        #
-        self._is_listening.set()
-        self.listen_thread.start()
 
     def _stop_listening(self, join=True):
         if join:
@@ -113,21 +107,33 @@ class Client:
             )
         self._is_connected.set()
         #
-        self._start_listening()
+        if not self.is_connected:
+            raise RuntimeError('Сначала нужно подключиться к серверу')
+        #
+        self._is_listening.set()
+        self.listen_thread.start()
 
     def disconnect(self, join=True):
         if not self.is_connected:
             return
         #
         try:
+            #
+            self._is_listening.clear()
+            self._stop_listening(join)
+            #
             self.transport.settimeout(30)
             self.send_to_server({
                 'status': 'disconnect',
             })
+            # ожидаем ответ от сервера - что бы освободить nickname клиента
+            server_data = self.transport.recv()  # IMPORTANT
+        except Exception as e:
+            log.exception(e)
+            pass
         finally:
-            print('self.remote.disconnect()  0 _stop_listening')
-            self._stop_listening(join)
             #
+            # self._stop_listening(join)
             print('self.remote.disconnect()  1 sock.close')
             self.transport.sock.close()
             print('self.remote.disconnect()  2 SUCCESS ')

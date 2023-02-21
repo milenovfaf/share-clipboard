@@ -1,10 +1,12 @@
 import time
 from threading import Thread
+from threading import Event
 
-from PyQt5 import QtWidgets
+import pyperclip
+from PyQt5 import QtWidgets, QtGui
 import sys
 
-from PyQt5.QtWidgets import QSystemTrayIcon
+from PyQt5.QtWidgets import QSystemTrayIcon, QAction
 
 import app_settings
 import gui_qt
@@ -21,39 +23,20 @@ log = logging.getLogger(__name__)
 
 # ------------------------------------------------------------------------------
 
-
-def show_msg(gui, msg, success=False, popup=False, button=False):
-    if popup:
-        gui.tray_icon.showMessage(
-            "Share Clipboard",
-            msg,
-            QSystemTrayIcon.Information,
-            5000
-        )
-    if success:
-        gui.ui.label_error.setStyleSheet('color: #00CC00')  # Green
-        gui.ui.label_error.setText(msg)
-        gui.ui.label_error.update()
-        return
-    gui.ui.label_error.setStyleSheet('color: #FF0000')  # Red
-    gui.ui.label_error.setText(msg)
-    gui.ui.label_error.update()
-
-
 @contextmanager
 def error_interceptor(gui, msg=None, success=False):
     """ Обработка ошибок """
     try:
-        show_msg(gui, msg='')
+        gui.show_msg(msg='')
         if success:
-            show_msg(gui, 'Подключено к серверу', success)
+            gui.show_msg('Подключено к серверу', success)
         yield None
     except (ConnectionError, ConnectionRefusedError) as e:
         log.exception(e)
-        show_msg(gui, 'Нет подключения к серверу')
+        gui.show_msg('Нет подключения к серверу')
     except Exception as e:
         log.exception(e)
-        show_msg(gui, f' {msg} ({e})')
+        gui.show_msg(f'{msg} ({e})')
     finally:
         pass
 
@@ -105,13 +88,13 @@ def _create_settings(settings_file_path):
 class App:
     def __init__(self, settings_file_path='settings.json'):
         self.settings_file_path = settings_file_path
-        #
+        # ----------------------------------------------------------------------
         self.hotkey_handler = handler.HotkeysCopyPasteHandler(
             self._callback_on_synchronization, self._callback_on_share,
         )
         # ----------------------------------------------------------------------
         self.gui = gui_qt.ShowUiMainWindow(
-            self.callback_settings_update
+            self.callback_settings_update, self.callback_apply_received_data
         )
         # ----------------------------------------------------------------------
         self.remote = client.Client(
@@ -130,9 +113,11 @@ class App:
                 self.received_sync_clipboard_data
             ))
         # ----------------------------------------------------------------------
-        # self.reconnection = Thread(
-        #     target=self.reconnect
-        # )
+        self.reconnection = Thread(
+            target=self.reconnect
+        )
+        # ----------------------------------------------------------------------
+        self.is_need_reconnect = Event()
         # ----------------------------------------------------------------------
 
     def start_app(self):
@@ -150,11 +135,7 @@ class App:
         self.gui.show_gui(self.settings)
         #
         if self.settings.client_name and self.settings.ip and self.settings.port:
-            with error_interceptor(
-                    self.gui, success=True
-            ):
-                self.remote.connect(self.settings)
-        # self.reconnection.start()
+            self.reconnection.start()
 
     def close_app(self):
         self.remote.disconnect()
@@ -162,26 +143,33 @@ class App:
 
     # ------ Reconnect ---------------------------------------------------------
 
-    # def reconnect(self):
-    #     """ Переподключение """
-    #     while True:
-    #         time.sleep(5)
-    #         if self.remote.listen_thread.is_alive():
-    #             continue
-    #         log.info('Reconnect')
-    #         with error_interceptor(
-    #                 self.gui, success=True
-    #         ):
-    #             self.remote.disconnect()
-    #             # ------------------------------- #
-    #             self.remote = client.Client(
-    #                 callback_server_data=self._callback_receive_clipboard_data,
-    #                 callback_server_msg=self._callback_receive_msg
-    #             )  # ---------------------------- #
-    #             self.remote.connect(self.settings)
-    #
-    #         time.sleep(5)
-
+    def reconnect(self):
+        """ Переподключение """
+        while True:
+            if self.remote.listen_thread.is_alive():
+                if self.is_need_reconnect.is_set() is False:
+                    time.sleep(0.2)
+                    continue
+                #
+            #
+            self.is_need_reconnect.clear()
+            #
+            log.info('Reconnect')
+            with error_interceptor(
+                    self.gui, success=True
+            ):
+                if self.remote.is_connected:
+                    self.remote.disconnect()
+                #
+                # ------------------------------- #
+                self.remote = client.Client(
+                    callback_server_data=self._callback_receive_clipboard_data,
+                    callback_server_msg=self._callback_receive_msg
+                )  # ---------------------------- #
+                self.remote.connect(self.settings)
+            #
+            time.sleep(2)
+        #
     # ------ Apply -------------------------------------------------------------
 
     @callback_error_alert
@@ -202,21 +190,11 @@ class App:
             self.hotkey_handler.start(self.settings)
         #
         if not self.settings.client_name and self.settings.ip and self.settings.port:
-            show_msg(self.gui, 'Не заданы обязательные поля')
+            self.gui.show_msg('Не заданы обязательные поля')
             return
         #
-        with error_interceptor(
-                self.gui, success=True
-        ):
-            self.remote.disconnect()
-            # ------------------------------- #
-            self.remote = client.Client(
-                callback_server_data=self._callback_receive_clipboard_data,
-                callback_server_msg=self._callback_receive_msg,
-            )  # ---------------------------- #
-            self.remote.connect(self.settings)
-            #
-        #
+        self.is_need_reconnect.set()
+
     # ------ Send --------------------------------------------------------------
 
     @callback_error_alert
@@ -257,32 +235,29 @@ class App:
         if client_name not in self.settings.client_name_for_sync:
             self.received_share_clipboard_data = clipboard_data
             msg = f'Получены данные от: {client_name}'
-            show_msg(self.gui, msg, success=True, popup=True)
+            self.gui.show_msg(msg, success=True, popup=True)
             return
         #
         self.received_sync_clipboard_data = clipboard_data
         # ---- Вызовит синхронизацию ---- #
-        self.clipboard.setText(clipboard_data, mode=self.clipboard.Clipboard)
+        pyperclip.copy(clipboard_data)
+        # self.clipboard.setText(clipboard_data, mode=self.clipboard.Clipboard)
         # ------------------------------- #
-        # if client_name != self.settings.client_name_for_sync:
-        #     with error_interceptor(
-        #             self.gui, success=True
-        #     ):
-        #         self.remote.send_clipboard_content(
-        #             self.settings.client_name,
-        #             self.settings.client_name_for_sync,
-        #             clipboard_data,
-        #         )
-        #     #
 
     @callback_error_alert
     def _callback_receive_msg(self, msg, success=None, popup=None):
         """ Получение сообщений от клиента и сервера """
-        show_msg(self.gui, msg, success, popup=True)
+        self.gui.show_msg(msg, success, popup=True)
     #
 
-
+    @callback_error_alert
+    def callback_apply_received_data(self):
+        if self.received_share_clipboard_data:
+            # ---- Вызовит синхронизацию ---- #
+            pyperclip.copy(self.received_share_clipboard_data)
+            # ------------------------------- #
 # ------------------------------------------------------------------------------
+
 
 class LogHandler(logging.Handler):
     def __init__(self, log_window: gui_qt.LogWindow):

@@ -7,6 +7,8 @@ import threading
 import socketserver
 import logging
 from logging import handlers
+import time
+
 log = logging.getLogger(__name__)
 
 # ------------------------------------------------------------------------------
@@ -114,10 +116,14 @@ class ThreadedTCPRequestHandler:
             client_status = client_data.get('status')
             if client_status == 'disconnect':
                 self.app.remove_client_index(self)
+                self.send_data({
+                    'status': 'success',
+                    'msg': 'Клиент успешно удалён',
+                })
+                time.sleep(3)  # wait sending data
                 break
             #
             target_client_names = client_data.get('target_client_name')
-            # if target_client_name is None:
             if not target_client_names:
                 continue
 
@@ -127,15 +133,6 @@ class ThreadedTCPRequestHandler:
                         client_data
                     )
 
-            # if self.app.get_handler(target_client_name) is None:
-            #     self.send_data({
-            #         'status': 'error',
-            #         'msg': f'Клиент "{target_client_name}" не подключён к серверу'
-            #     })
-            #     continue
-            #
-            # self.app.get_handler(target_client_names).send_data(client_data)
-        #
 
     def send_data(self, data):
         self.transport.sender(data)
@@ -177,6 +174,7 @@ def main():
             return handler.handle()
         finally:
             handler.finish()
+            request.close()  # important
         #
     #
     with ThreadedTCPServer((HOST, PORT), _socket_handler) as server:

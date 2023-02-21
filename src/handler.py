@@ -1,5 +1,6 @@
 import time
 # import pyautogui
+import pyperclip
 from PyQt5 import QtWidgets, Qt, QtCore
 from pynput.keyboard import Controller, Key
 from pynput import keyboard
@@ -92,7 +93,7 @@ class HotkeysCopyPasteHandler(object):
             self.keyboard.press('c')
             self.keyboard.release('c')
         #
-        time.sleep(1)
+        # time.sleep(1)
         previous_content = self.list_clipboard_data[-2]
         new_content = self.list_clipboard_data[-1]
         content = previous_content, new_content
@@ -104,7 +105,8 @@ class HotkeysCopyPasteHandler(object):
         #
         self.list_clipboard_data.append(joined_content)
         # ---- Вызовит синхронизацию ---- #
-        self.clipboard.setText(joined_content, mode=self.clipboard.Clipboard)
+        pyperclip.copy(joined_content)
+        # self.clipboard.setText(joined_content, mode=self.clipboard.Clipboard)
         # ------------------------------- #
         self.callback_on_copy(joined_content)
         log.info(f'Сработал copy join: '

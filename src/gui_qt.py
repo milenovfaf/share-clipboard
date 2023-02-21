@@ -468,10 +468,15 @@ class LogWindow(QtWidgets.QTextEdit):
 class ShowUiMainWindow(QtWidgets.QMainWindow):
     tray_icon = None
 
-    def __init__(self, callback_settings_update):
+    def __init__(self,
+                 callback_settings_update,
+                 callback_apply_received_data
+                 ):
         super(ShowUiMainWindow, self).__init__()
         assert callable(callback_settings_update)
+        assert callable(callback_apply_received_data)
         self.callback_settings_update = callback_settings_update
+        self.callback_apply_received_data = callback_apply_received_data
         # ----------------------------------------------------------------------
         self.ui = UiMainWindow()
         self.ui.setupUi(self)
@@ -487,19 +492,26 @@ class ShowUiMainWindow(QtWidgets.QMainWindow):
             self.style().standardIcon(QStyle.SP_ComputerIcon))
         # self.tray_icon.setIcon(QIcon('icon.ico'))
 
+        apply_data_action = QAction("Принять данные", self)
         show_action = QAction("Показать", self)
         log_action = QAction("Показать лог", self)
-        quit_action = QAction("Закрыть", self)
         hide_action = QAction("Свернуть в трей", self)
+        quit_action = QAction("Закрыть", self)
+        #
+        apply_data_action.triggered.connect(
+            lambda: self.callback_apply_received_data())
         show_action.triggered.connect(self.show)
         log_action.triggered.connect(lambda: self.log_window.show())
         hide_action.triggered.connect(self.hide)
         quit_action.triggered.connect(qApp.quit)
+        #
         tray_menu = QMenu()
+        tray_menu.addAction(apply_data_action)
         tray_menu.addAction(show_action)
         tray_menu.addAction(log_action)
         tray_menu.addAction(hide_action)
         tray_menu.addAction(quit_action)
+        #
         self.tray_icon.setContextMenu(tray_menu)
         self.tray_icon.activated.connect(self.on_tray_icon_activated)
         self.tray_icon.show()
@@ -510,17 +522,10 @@ class ShowUiMainWindow(QtWidgets.QMainWindow):
             self.show()
         #
 
-    # Переопределение метода closeEvent, для перехвата события закрытия окна
     def closeEvent(self, event):
         """ Перехват события закрытия окна """
         event.ignore()
         self.hide()
-        # self.tray_icon.showMessage(
-        #     "Уведомление",
-        #     "Приложение свернулось в трей",
-        #     QSystemTrayIcon.Information,
-        #     1000
-        # )
 
     # def changeEvent(self, event):
     #     """ Перехват события сворачивания окна """
@@ -574,6 +579,26 @@ class ShowUiMainWindow(QtWidgets.QMainWindow):
         if update:
             self.update()
         #
+    # --------------------------------------------------------------------------
+
+    def show_msg(self, msg, success=False, popup=False):
+        if popup:
+            self.tray_icon.showMessage(
+                "Share Clipboard",
+                msg,
+                QSystemTrayIcon.Information,
+                1000,
+            )
+        if success:
+            self.ui.label_error.setStyleSheet('color: #00CC00')  # Green
+            self.ui.label_error.setText(msg)
+            self.ui.label_error.update()
+            return
+        self.ui.label_error.setStyleSheet('color: #FF0000')  # Red
+        self.ui.label_error.setText(msg)
+        self.ui.label_error.update()
+
+    # --------------------------------------------------------------------------
 
     def show_gui(self, settings) -> None:
         self._set_settings(settings, update=False)
@@ -609,4 +634,3 @@ class ShowUiMainWindow(QtWidgets.QMainWindow):
             new_settings,
         )
         # ----------------------------------------------------------------------
-

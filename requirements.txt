@@ -1,6 +1,7 @@
 PyQt5==5.15.4
 pyqt5-tools==5.15.4.3.2
 pynput==1.7.6
+pyperclip==1.8.2
 
 pytest==7.2.0
 
