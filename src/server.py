@@ -1,4 +1,3 @@
-import logging
 import sys
 from socket import *
 from transport import JsonTransportProtocol
@@ -26,42 +25,40 @@ class ServerApp:
         self.client_data_map = {}
 
     def register_client(self, name, handler):
-        log.debug(f'ServerApp.register_client {name} {handler}')
+        log.debug(f'(register_client) -- РЕГИСТРАЦИЯ -- (Аргументы) ИМЯ: {name} - HANDLER: {handler}')
         with self.lock:
             #
             self.client_data[name] = handler
             self.client_data_map[handler] = name
-            log.debug(f'register_client - name: {name}, handler: {handler}, '
-                      f'client_data:{self.client_data}, '
-                      f'client_data_map: {self.client_data_map}')
-        #
+            log.debug(f'(register_client) -- РЕГИСТРАЦИЯ -- Зарегистрированные клиенты: (client_data): {self.client_data}')
+            log.debug(f'(register_client) -- РЕГИСТРАЦИЯ -- Зарегистрированные клиенты: (client_data_map): {self.client_data_map}')
+            log.debug(f'------------------------------------------------------')
 
     def remove_client_index(self, handler):
-        log.debug(f'ServerApp.remove_client_index {handler}')
+        log.debug(f'(remove_client_index) -- УДАЛЕНИЕ КЛИЕНТА -- (Аргументы) HANDLER: {handler}')
         assert isinstance(handler, ThreadedTCPRequestHandler)
         with self.lock:
             if handler not in self.client_data_map:
-                log.debug(f'ServerApp.remove_client_index '
-                          f'handler does not exists {handler}')
+                log.debug(f'(remove_client_index) -- УДАЛЕНИЕ КЛИЕНТА -- Этот HANDLER НЕ ЗАРЕГИСТРИРОВАН - RETURN -: {handler}')
                 return
                 #
+            log.debug(f'(remove_client_index) -- УДАЛЕНИЕ КЛИЕНТА -- Зарегистрированные клиенты ПЕРЕД удалением: (client_data): {self.client_data}')
+            log.debug(f'(remove_client_index) -- УДАЛЕНИЕ КЛИЕНТА -- Зарегистрированные клиенты ПЕРЕД удалением: (client_data_map): {self.client_data_map}')
             name = self.client_data_map.pop(handler)
-            log.debug(f'ServerApp.remove_client_index {name} {handler}')
+            log.debug(f'(remove_client_index) -- УДАЛЕНИЕ КЛИЕНТА -- POP - HANDLER: {handler}')
+            log.debug(f'(remove_client_index) -- УДАЛЕНИЕ КЛИЕНТА -- POP - ИМЯ: {name} которое вернул POP')
             self.client_data.pop(name)
-            log.debug(f'remove_client_index - name: {name}, handler: {handler} '
-                      f'client_data: {self.client_data}, '
-                      f'client_data_map: {self.client_data_map}')
+            log.debug(f'(remove_client_index) -- УДАЛЕНИЕ КЛИЕНТА -- Зарегистрированные клиенты ПОСЛЕ удаления: (client_data): {self.client_data}')
+            log.debug(f'(remove_client_index) -- УДАЛЕНИЕ КЛИЕНТА -- Зарегистрированные клиенты ПОСЛЕ удаления: (client_data_map): {self.client_data_map}')
         #
-        log.debug(f'ServerApp.remove_client_index success, end.')
+        log.debug(f'------------------------------------------------------')
 
     def get_handler(self, client_name):
+        log.debug(f'(get_handler) -- ПОЛУЧИТЬ HANDLER -- (Аргументы) ИМЯ: {client_name}')
+        log.debug(f'(get_handler) -- ПОЛУЧИТЬ HANDLER -- Зарегистрированные клиенты: (client_data): {self.client_data}')
+        log.debug(f'(get_handler) -- ПОЛУЧИТЬ HANDLER -- Зарегистрированные клиенты: (client_data_map): {self.client_data_map}')
         handler = self.client_data.get(client_name, None)
-        log.debug(f'get_handler - '
-                  f'client_name: {client_name}, '
-                  f'client_data: {self.client_data}, '
-                  f'client_data_map: {self.client_data_map}, '
-                  f'handler: {handler}')
-        log.debug(f'ServerApp.get_handler {client_name} {handler}')
+        log.debug(f'(get_handler) -- ПОЛУЧИТЬ HANDLER -- Полученный HANDLER: {handler}')
         return handler
         #
 # ------------------------------------------------------------------------------
@@ -76,16 +73,21 @@ class ThreadedTCPRequestHandler:
         #
         self.app = app
         self.transport = JsonTransportProtocol(request)
+        self.authorize_lock = threading.RLock()
     # --------------------------------------------------------------------------
 
+    def send_data(self, data):
+        log.debug(f'(send_data) -- SEND DATA -- DATA: {data} - {self.client_address} HANDLER: {self}')
+        self.transport.sender(data)
+
     def authorize(self, handler) -> bool:
-        log.debug(f'ThreadedTCPRequestHandler.authorize {handler}')
         assert isinstance(handler, ThreadedTCPRequestHandler)
         client_data: dict = self.transport.recv()
         # ------------------------- #
         client_name = client_data.get('client_name')
         client_version = client_data.get('client_version')
-        log.debug(f'ThreadedTCPRequestHandler.authorize {client_name} {handler} {client_version}')
+        log.debug(f'(authorize) -- АВТОРИЗАЦИЯ -- ИМЯ: {client_name}')
+        log.debug(f'(authorize) -- АВТОРИЗАЦИЯ -- HANDLER: {handler}')
         # ------------------------- #
         if client_version > self.app.server_version:
             self.app.server_version = client_version
@@ -102,15 +104,18 @@ class ThreadedTCPRequestHandler:
             })
             # return False
         # ------------------------- #
-        if self.app.get_handler(client_name) is not None:
-            log.debug(f'ThreadedTCPRequestHandler.authorize Имя {client_name} недоступно')
-            self.send_data({
-                'status': 'error',
-                'msg': f'Имя {client_name} недоступно',
-            })
-            return False
-        self.app.register_client(client_name, handler)
-        log.debug(f'ThreadedTCPRequestHandler.authorize success register_client {client_name} {handler}')
+        log.debug(f'------------------------------------------------------')
+        with self.authorize_lock:
+            if self.app.get_handler(client_name) is not None:
+                log.debug(f'(authorize) -- АВТОРИЗАЦИЯ -- ИМЯ НЕДОСТУПНО: {client_name}')
+                self.send_data({
+                    'status': 'error',
+                    'msg': f'Имя {client_name} недоступно',
+                })
+                return False
+            self.app.register_client(client_name, handler)
+        #
+        log.debug(f'------------------------------------------------------')
         self.send_data({
             'status':      'success',
             'client_name':  client_name,
@@ -118,45 +123,60 @@ class ThreadedTCPRequestHandler:
         return True
     # --------------------------------------------------------------------------
 
-    def handle(self):
-        if self.authorize(self) is False:
-            log.debug(f'ThreadedTCPRequestHandler.handle nas no authorize {self} {self.client_address}')
-            return
-        #
-        log.debug(f'ThreadedTCPRequestHandler.handle [while True] {self} {self.client_address}')
+    def communication_loop(self):
         while True:
             client_data: dict = self.transport.recv()
-            log.debug(f'ThreadedTCPRequestHandler.handle client_data {client_data} {self} {self.client_address}')
+            log.debug(f'(handle) -- HANDLE -- client_data: {client_data} {self.client_address} HANDLER: {self}')
             #
+            if not client_data:
+                break
+
             client_status = client_data.get('status')
-            if client_status == 'disconnect':
-                self.app.remove_client_index(self)
-                self.send_data({
-                    'status': 'success',
-                    'msg': 'Клиент успешно удалён',
-                })
-                time.sleep(3)  # wait sending data
+            if not client_data or client_status == 'disconnect':
                 break
             #
             target_client_names = client_data.get('target_client_name')
             if not target_client_names:
                 continue
+            #
 
             for target_name in target_client_names:
-                if self.app.get_handler(target_name) is not None:
-                    self.app.get_handler(target_name).send_data(
-                        client_data
-                    )
-        log.debug(f'ThreadedTCPRequestHandler.handle [while True END] {self} {self.client_address}')
+                if self.app.get_handler(target_name) is None:
+                    continue
+                #
+                self.app.get_handler(target_name).send_data(
+                    client_data
+                )
+                #
+            #
+        #
+        log.debug('(handle) end loop/')
 
-    def send_data(self, data):
-        log.debug(f'ThreadedTCPRequestHandler.send_data {self} {self.client_address} {data} ')
-        self.transport.sender(data)
+    def logout(self):
+        log.debug(f'(handle) -- FINISH -- {self.client_address} HANDLER: {self}')
+        self.app.remove_client_index(self)
+        try:
+            self.send_data({
+                'status': 'disconnect',
+                'msg': 'Клиент удалён',
+            })
+            time.sleep(3)  # wait sending/delivering data
+        except:
+            pass
         #
 
-    def finish(self):
-        log.debug(f'ThreadedTCPRequestHandler.finish {self} {self.client_address}  remove_client_index')
-        self.app.remove_client_index(self)
+    def handle(self):
+        try:
+            if self.authorize(self) is False:
+                log.debug(f'(handle) -- HANDLE -- АВТОРИЗАЦИЯ НЕ ПРОШЛА ДЛЯ: {self.client_address} HANDLER: {self}')
+                return
+            #
+            log.debug(f'(handle) -- HANDLE -- УСПЕШНАЯ АВТОРИЗИРОВАН: {self.client_address} HANDLER: {self}')
+            # - - -
+            self.communication_loop()
+        finally:
+            self.logout()
+        #
 
 # ------------------------------------------------------------------------------
 
@@ -194,7 +214,6 @@ def main():
         try:
             return handler.handle()
         finally:
-            handler.finish()
             request.close()  # important
         #
     #

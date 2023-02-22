@@ -17,7 +17,7 @@ class TransportProtocol:
 
     def sender(self, text):
         self._msg_counter = self._msg_counter + 1
-        log.debug(f'{self._msg_counter} - SENDER - {text}')
+        log.debug(f'{self._msg_counter} -- SENDER -- {text}')
         text = bytes(text, 'utf-8')
         # Отправляем пакет 4 байта, хранящие длинну сообщения + само сообщение
         self.sock.sendall(
@@ -55,7 +55,7 @@ class TransportProtocol:
         result = self._recv_packets(payload_len)
 
         result = result.decode()
-        log.debug(f'{self._msg_counter} - RECV - {payload_len} bytes == {result}')
+        log.debug(f'{self._msg_counter} -- RECV -- {payload_len} bytes == {result}')
         return result
     #
 
