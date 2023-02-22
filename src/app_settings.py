@@ -1,6 +1,6 @@
 import json
 import random
-import re
+import string
 
 
 class SettingsError(Exception):
@@ -11,14 +11,20 @@ class EmtpyFileSettingsError(SettingsError):
     """ """
 
 
+def generate_client_id():
+    chars = string.ascii_lowercase + string.digits
+    return ''.join(random.choice(chars) for _ in range(32))
+
+
 def get_default_app_settings():
     return AppSettings(
+        client_id=generate_client_id(),
         ip='45.141.77.236',
         port='7000',
         client_name='user' + str(random.randint(1111, 9999)),
         client_name_for_sync=[],
         client_name_for_share=[],
-        # copy_join_keys='<shift>+<ctrl>+k',
+        copy_join_keys='<shift>+<ctrl>+p',
         connector_new_line_keys='<ctrl>+1',
         connector_space_bar_keys='<ctrl>+2',
         connector_none_keys='<ctrl>+3',
@@ -55,23 +61,26 @@ def string_to_list(value):
 class AppSettings:
     def __init__(
             self,
-            client_name:                str = None,
+            client_id,
+            client_name: str = None,
             client_name_for_sync=None,
             client_name_for_share=None,
-            ip:                         str = None,
-            port:                       str = None,
-            copy_join_keys:             str = None,
-            share_keys:                 str = None,
-            connector_new_line_keys:    str = None,
-            connector_space_bar_keys:   str = None,
-            connector_none_keys:        str = None,
+            ip: str = None,
+            port: str = None,
+            copy_join_keys: str = None,
+            share_keys: str = None,
+            connector_new_line_keys: str = None,
+            connector_space_bar_keys: str = None,
+            connector_none_keys: str = None,
     ):
         self.client_version = 0.3
+        #
+        self.client_id = client_id
         self.client_name = str_validator(client_name)
-        # self.client_name_for_sync = str_validator(client_name_for_sync)
-        self.client_name_for_sync = string_to_list(str_validator(client_name_for_sync))
-        # self.client_name_for_share = str_validator(client_name_for_share)
-        self.client_name_for_share = string_to_list(str_validator(client_name_for_share))
+        self.client_name_for_sync = string_to_list(
+            str_validator(client_name_for_sync))
+        self.client_name_for_share = string_to_list(
+            str_validator(client_name_for_share))
         self.ip = str_validator(ip)
         self.port = str_validator(port)
         self.copy_join_keys = str_validator(copy_join_keys)
@@ -82,16 +91,17 @@ class AppSettings:
 
     def to_dict(self):
         return {
-            'client_name':              self.client_name,
-            'client_name_for_sync':     self.client_name_for_sync,
-            'client_name_for_share':    self.client_name_for_share,
-            'ip':                       self.ip,
-            'port':                     self.port,
-            'copy_join_keys':           self.copy_join_keys,
-            'share_keys':               self.share_keys,
-            'connector_new_line_keys':  self.connector_new_line_keys,
+            'client_id': self.client_id,
+            'client_name': self.client_name,
+            'client_name_for_sync': self.client_name_for_sync,
+            'client_name_for_share': self.client_name_for_share,
+            'ip': self.ip,
+            'port': self.port,
+            'copy_join_keys': self.copy_join_keys,
+            'share_keys': self.share_keys,
+            'connector_new_line_keys': self.connector_new_line_keys,
             'connector_space_bar_keys': self.connector_space_bar_keys,
-            'connector_none_keys':      self.connector_none_keys,
+            'connector_none_keys': self.connector_none_keys,
         }
 
     @classmethod

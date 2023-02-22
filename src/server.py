@@ -22,12 +22,14 @@ class ServerApp:
         self.server_version = 0.3
         self.lock = threading.RLock()
         self.client_data = {}
+        self.client_id_map = {}
         self.client_data_map = {}
 
-    def register_client(self, name, handler):
+    def register_client(self, client_id, name, handler):
         log.debug(f'(register_client) -- РЕГИСТРАЦИЯ -- (Аргументы) ИМЯ: {name} - HANDLER: {handler}')
         with self.lock:
             #
+            self.client_id_map[handler] = client_id
             self.client_data[name] = handler
             self.client_data_map[handler] = name
             log.debug(f'(register_client) -- РЕГИСТРАЦИЯ -- Зарегистрированные клиенты: (client_data): {self.client_data}')
@@ -48,6 +50,7 @@ class ServerApp:
             log.debug(f'(remove_client_index) -- УДАЛЕНИЕ КЛИЕНТА -- POP - HANDLER: {handler}')
             log.debug(f'(remove_client_index) -- УДАЛЕНИЕ КЛИЕНТА -- POP - ИМЯ: {name} которое вернул POP')
             self.client_data.pop(name)
+            self.client_id_map.pop(handler)
             log.debug(f'(remove_client_index) -- УДАЛЕНИЕ КЛИЕНТА -- Зарегистрированные клиенты ПОСЛЕ удаления: (client_data): {self.client_data}')
             log.debug(f'(remove_client_index) -- УДАЛЕНИЕ КЛИЕНТА -- Зарегистрированные клиенты ПОСЛЕ удаления: (client_data_map): {self.client_data_map}')
         #
@@ -59,6 +62,10 @@ class ServerApp:
         log.debug(f'(get_handler) -- ПОЛУЧИТЬ HANDLER -- Зарегистрированные клиенты: (client_data_map): {self.client_data_map}')
         handler = self.client_data.get(client_name, None)
         log.debug(f'(get_handler) -- ПОЛУЧИТЬ HANDLER -- Полученный HANDLER: {handler}')
+        return handler
+
+    def get_client_id(self, handler):
+        handler = self.client_id_map.get(handler, None)
         return handler
         #
 # ------------------------------------------------------------------------------
@@ -84,6 +91,7 @@ class ThreadedTCPRequestHandler:
         assert isinstance(handler, ThreadedTCPRequestHandler)
         client_data: dict = self.transport.recv()
         # ------------------------- #
+        client_id = client_data.get('client_id')
         client_name = client_data.get('client_name')
         client_version = client_data.get('client_version')
         log.debug(f'(authorize) -- АВТОРИЗАЦИЯ -- ИМЯ: {client_name}')
@@ -106,14 +114,21 @@ class ThreadedTCPRequestHandler:
         # ------------------------- #
         log.debug(f'------------------------------------------------------')
         with self.authorize_lock:
-            if self.app.get_handler(client_name) is not None:
-                log.debug(f'(authorize) -- АВТОРИЗАЦИЯ -- ИМЯ НЕДОСТУПНО: {client_name}')
-                self.send_data({
-                    'status': 'error',
-                    'msg': f'Имя {client_name} недоступно',
-                })
-                return False
-            self.app.register_client(client_name, handler)
+            exist_handler = self.app.get_handler(client_name)
+            if exist_handler:
+                exist_client_uuid = self.app.get_client_id(exist_handler)
+                if exist_client_uuid != client_id:
+                    log.debug(f'(authorize) -- АВТОРИЗАЦИЯ -- ИМЯ НЕДОСТУПНО: {client_name}')
+                    self.send_data({
+                        'status': 'error',
+                        'msg': f'Имя {client_name} недоступно',
+                    })
+                    return False
+                #
+                assert isinstance(exist_handler, self.__class__)
+                exist_handler.logout()
+            #
+            self.app.register_client(client_id, client_name, handler)
         #
         log.debug(f'------------------------------------------------------')
         self.send_data({

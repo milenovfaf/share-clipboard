@@ -15,7 +15,6 @@ from contextlib import contextmanager
 import client
 import logging
 from logging import handlers
-import inspect
 log = logging.getLogger(__name__)
 
 
@@ -49,9 +48,7 @@ def callback_error_alert(fn):
             print(e)
             raise
         #
-
     return wrapper
-
 
 # ------------------------------------------------------------------------------
 
@@ -95,7 +92,8 @@ class App:
         )
         # ----------------------------------------------------------------------
         self.gui = gui_qt.ShowUiMainWindow(
-            self.callback_settings_update, self.callback_apply_received_data
+            self.callback_settings_update,
+            self.callback_apply_received_data
         )
         # ----------------------------------------------------------------------
         self.remote = client.Client(
@@ -149,10 +147,13 @@ class App:
     def reconnect(self):
         """ Переподключение """
         log.debug('App.reconnect - thread BEGIN')
+        _reconnect_id = 0
+        _reconnect_sleep_map = [1, 10, 30, 60]
         while True:
             if self.remote.listen_thread.is_alive():
                 if self.is_need_reconnect.is_set() is False:
                     time.sleep(0.2)
+                    _reconnect_id = 1
                     continue
                 #
             #
@@ -178,7 +179,17 @@ class App:
                 self.remote.connect(self.settings)
                 log.debug('App.reconnect - try reconnect - SUCCESS')
             #
-            time.sleep(2)
+            _sleep_value = _reconnect_sleep_map[-1]
+            if _reconnect_id < len(_reconnect_sleep_map):
+                _sleep_value = _reconnect_sleep_map[_reconnect_id]
+            #
+            for i in range(_sleep_value):
+                if self.is_need_reconnect.is_set():
+                    break
+                #
+                time.sleep(1)
+            #
+            _reconnect_id += 1
         #
         log.debug(f'App.reconnect - thread END')
 
@@ -216,6 +227,7 @@ class App:
         ):
             self.remote.send_clipboard_content(
                 self.settings.client_name,
+                self.settings.client_id,
                 self.settings.client_name_for_sync,
                 # ----------- ^^^^^^ -------- ^^^^
                 clipboard_data,
@@ -230,6 +242,7 @@ class App:
         ):
             self.remote.send_clipboard_content(
                 self.settings.client_name,
+                self.settings.client_id,
                 self.settings.client_name_for_share,
                 # ----------- ^^^^^ --------- ^^^^
                 clipboard_data,

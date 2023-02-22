@@ -99,6 +99,7 @@ class Client:
         self.transport.sender({
             'client_version': settings.client_version,
             'client_name': settings.client_name,
+            'client_id': settings.client_id,
         })
         server_data = self.transport.recv()
         #
@@ -153,11 +154,13 @@ class Client:
     def send_clipboard_content(
             self,
             client_name,
+            client_id,
             target_client_name,
             clipboard_data,
     ):
         return self.send_to_server({
             'client_name':        client_name,
+            'client_id':          client_id,
             'target_client_name': target_client_name,
             'client_data':        clipboard_data,
         })

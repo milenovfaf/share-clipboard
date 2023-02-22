@@ -1,11 +1,7 @@
-import logging
-import sys
 
 from PyQt5 import QtCore, QtWidgets
-from PyQt5.QtCore import QTimer, QMetaType, QMetaObject
 from PyQt5.QtGui import QIcon, QTextCursor
-from PyQt5.QtWidgets import QSystemTrayIcon, QMenu, QAction, QStyle, qApp, \
-    QTextEdit
+from PyQt5.QtWidgets import QSystemTrayIcon, QMenu, QAction, QStyle, qApp
 import app_settings
 import logging
 
@@ -523,6 +519,9 @@ class ShowUiMainWindow(QtWidgets.QMainWindow):
         self.tray_icon.setContextMenu(tray_menu)
         self.tray_icon.activated.connect(self.on_tray_icon_activated)
         self.tray_icon.show()
+        # ----------------------------------------------------------------------
+        self.old_settings = None
+        # ----------------------------------------------------------------------
 
     def on_tray_icon_activated(self, reason):
         """ Показать окно двойным кликом по иконке в трее """
@@ -566,6 +565,8 @@ class ShowUiMainWindow(QtWidgets.QMainWindow):
 
     def _set_settings(self, settings: app_settings.AppSettings, update=True):
         """ Вывод имеющихся параметров в поля ввода если они есть """
+        self.old_settings = settings
+        #
         self.ui.ip.setText(settings.ip)
         self.ui.port.setText(settings.port)
         self.ui.client_name.setText(settings.client_name)
@@ -585,6 +586,14 @@ class ShowUiMainWindow(QtWidgets.QMainWindow):
         if update:
             self.update()
         #
+
+    # --------------------------------------------------------------------------
+
+    def show_gui(self, settings) -> None:
+        self._set_settings(settings, update=False)
+        self.window_placement()
+        return super(ShowUiMainWindow, self).hide()
+
     # --------------------------------------------------------------------------
 
     def show_msg(self, msg, success=False, popup=False):
@@ -606,13 +615,6 @@ class ShowUiMainWindow(QtWidgets.QMainWindow):
 
     # --------------------------------------------------------------------------
 
-    def show_gui(self, settings) -> None:
-        self._set_settings(settings, update=False)
-        self.window_placement()
-        return super(ShowUiMainWindow, self).hide()
-
-    # --------------------------------------------------------------------------
-
     def apply_parameters(self) -> None:
         """ Применение параметров """
         client_name_for_sync = self.ui.client_name_for_sync.text()
@@ -623,6 +625,7 @@ class ShowUiMainWindow(QtWidgets.QMainWindow):
             client_name_for_share = []
 
         new_settings = app_settings.AppSettings(
+            client_id=self.old_settings.client_id,
             ip=self.ui.ip.text(),
             port=self.ui.port.text(),
             client_name=self.ui.client_name.text(),

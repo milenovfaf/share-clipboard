@@ -1,7 +1,6 @@
 import time
-# import pyautogui
 import pyperclip
-from PyQt5 import QtWidgets, Qt, QtCore
+from PyQt5 import QtWidgets
 from pynput.keyboard import Controller, Key
 from pynput import keyboard
 import logging
@@ -16,6 +15,7 @@ class HotkeysCopyPasteHandler(object):
             callback_on_copy_share,
     ):
         assert callable(callback_on_copy)
+        assert callable(callback_on_copy_share)
         self.callback_on_copy = callback_on_copy
         self.callback_on_copy_share = callback_on_copy_share
         # ----------------------------------------------------------------------
