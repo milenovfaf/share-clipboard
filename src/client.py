@@ -130,7 +130,7 @@ class Client:
             self._is_listening.clear()
             self._stop_listening(join)
             #
-            self.transport.settimeout(30)
+            self.transport.settimeout(5)
             self.send_to_server({
                 'status': 'disconnect',
             })
