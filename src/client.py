@@ -1,3 +1,5 @@
+import select
+import time
 from socket import *
 from threading import Thread, Event
 import app_settings
@@ -33,21 +35,40 @@ class Client:
             """ Получение данных от сервера """
             #
             log.debug(f'Client.msg_server_handler - while event')
-            self.transport.settimeout(0.5)
+            self.transport.settimeout(3)
             #
             while self._is_listening.is_set() is True:
-                try:
+                # --------------------------------------------#
+                ready_to_read, _, _ = select.select([self.sock], [], [], 60)
+                if not ready_to_read:
+                    # Если ничего не приходит в течении 60 секунд
+                    self.send_to_server({
+                        'status': 'ping',
+                    })
+                    try:
+                        # Ждём ответ pong, если нет ответа то reconnect
+                        server_data = self.transport.recv()
+                        if server_data.get('status') == 'pong':
+                            continue
+                    except ReadTimeoutError as e:
+                        log.debug(f'Client.msg_server_handler - Не получен ответ PONG - BREAK')
+                        break
+                #
+                else:
                     server_data = self.transport.recv()
                     log.debug(f'Client.msg_server_handler - server_data: {server_data} ')
-                except ReadTimeoutError as e:
-                    # log.exception(e)
-                    continue
+                # --------------------------------------------#
                 #
                 if not server_data:
                     log.debug(f'Client.msg_server_handler - not server_data - BREAK')
                     break
                 #
-                if server_data.get('status') in ('error', 'notification'):
+                server_status = server_data.get('status')
+                #
+                if server_status == 'pong':
+                    continue
+                #
+                if server_status in ('error', 'notification'):
                     server_msg = server_data['msg']
                     callback_server_msg(
                         server_msg
@@ -149,6 +170,8 @@ class Client:
         if not self.is_connected:
             raise ConnectionError
         #
+        if data.get('status') == 'active':
+            data = data['client_name'] = self.settings.client_name
         return self.transport.sender(data)
 
     def send_clipboard_content(

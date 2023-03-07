@@ -27,13 +27,16 @@ def error_interceptor(gui, msg=None, success=False):
         gui.show_msg(msg='')
         if success:
             gui.show_msg('Подключено к серверу', success)
+            gui.show_icon('blue')
         yield None
     except (ConnectionError, ConnectionRefusedError) as e:
         log.exception(e)
         gui.show_msg('Нет подключения к серверу')
+        gui.show_icon('red')
     except Exception as e:
         log.exception(e)
         gui.show_msg(f'{msg} ({e})')
+        gui.show_icon('red')
     finally:
         pass
 
@@ -93,7 +96,8 @@ class App:
         # ----------------------------------------------------------------------
         self.gui = gui_qt.ShowUiMainWindow(
             self.callback_settings_update,
-            self.callback_apply_received_data
+            self.callback_apply_received_data,
+            # self.is_need_reconnect,
         )
         # ----------------------------------------------------------------------
         self.remote = client.Client(
@@ -136,7 +140,6 @@ class App:
         self.gui.show_gui(self.settings)
         #
         self.reconnection.start()
-        #
 
     def close_app(self):
         self.remote.disconnect()
@@ -159,6 +162,7 @@ class App:
             #
             if not self.settings.client_name and self.settings.ip and self.settings.port:
                 self.gui.show_msg('Не заданы обязательные поля')
+                self.gui.show_icon('red')
                 time.sleep(1)
                 continue
             # ----------------------------------- #
@@ -266,6 +270,7 @@ class App:
             msg = f'Получены данные от: {client_name}'
             log.debug(f'App._callback_receive_clipboard_data - {msg}')
             self.gui.show_msg(msg, success=True, popup=True)
+            self.gui.show_icon('green')
             return
         #
         self.received_sync_clipboard_data = clipboard_data
@@ -291,6 +296,7 @@ class App:
             log.debug(f'App.callback_apply_received_data - '
                       f'Добавлены полученные данные в буфер обмена')
             pyperclip.copy(self.received_share_clipboard_data)
+            self.gui.show_icon('blue')
             # ------------------------------- #
 # ------------------------------------------------------------------------------
 

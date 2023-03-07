@@ -145,9 +145,15 @@ class ThreadedTCPRequestHandler:
             #
             if not client_data:
                 break
-
+            #
             client_status = client_data.get('status')
-            if not client_data or client_status == 'disconnect':
+            if client_status == 'ping':
+                self.send_data({
+                    'status': 'pong',
+                })
+                continue
+            #
+            if client_status == 'disconnect':
                 break
             #
             target_client_names = client_data.get('target_client_name')

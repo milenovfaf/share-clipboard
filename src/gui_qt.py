@@ -1,4 +1,3 @@
-
 from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtGui import QIcon, QTextCursor
 from PyQt5.QtWidgets import QSystemTrayIcon, QMenu, QAction, QStyle, qApp
@@ -377,7 +376,8 @@ class UiMainWindow(object):
         self.ip.setPlaceholderText(_translate("MainWindow", " 127.0.0.1 *"))
         self.port.setPlaceholderText(_translate("MainWindow", " 7000 *"))
         self.label_ip.setText(_translate(
-            "MainWindow", "<html><head/><body><p>Адрес сервера</p></body></html>"))
+            "MainWindow",
+            "<html><head/><body><p>Адрес сервера</p></body></html>"))
         self.button_apply.setText(_translate("MainWindow", "Применить"))
         self.button_apply.setShortcut(_translate("MainWindow", "1"))
         self.label_port.setText(_translate(
@@ -385,25 +385,30 @@ class UiMainWindow(object):
         self.copy_join_keys.setPlaceholderText(
             _translate("MainWindow", " <ctrl>+<shift>+c"))
         self.label_copy_join_keys.setText(_translate(
-            "MainWindow", "<html><head/><body><p><span style=\" font-size:12pt;\">Копирование +</span></p></body></html>"))
+            "MainWindow",
+            "<html><head/><body><p><span style=\" font-size:12pt;\">Копирование +</span></p></body></html>"))
         self.copy_share_keys.setPlaceholderText(
             _translate("MainWindow", " <ctrl>+<alt>+p"))
         self.label_copy_share_keys.setText(_translate(
-            "MainWindow", "<html><head/><body><p><span style=\" font-size:12pt;\">Поделиться</span></p></body></html>"))
+            "MainWindow",
+            "<html><head/><body><p><span style=\" font-size:12pt;\">Поделиться</span></p></body></html>"))
         self.label_error.setText(
             _translate("MainWindow", "<html><head/><body><p/></body></html>"))
         self.client_name.setPlaceholderText(
             _translate("MainWindow", " Ваше имя *"))
         self.label_client_name.setText(_translate(
-            "MainWindow", "<html><head/><body><p><span style=\" font-size:12pt;\">Имя</span></p></body></html>"))
+            "MainWindow",
+            "<html><head/><body><p><span style=\" font-size:12pt;\">Имя</span></p></body></html>"))
         self.label_client_name_for_sync.setText(_translate(
-            "MainWindow", "<html><head/><body><p>Синхронизация</p></body></html>"))
+            "MainWindow",
+            "<html><head/><body><p>Синхронизация</p></body></html>"))
         self.client_name_for_sync.setPlaceholderText(
             _translate("MainWindow", "Имя клиента, ..."))
         self.connector_enter_keys.setPlaceholderText(
             _translate("MainWindow", " <ctrl>+1"))
         self.label_connector_enter_keys.setText(_translate(
-            "MainWindow", "<html><head/><body><p>Новая строка</p></body></html>"))
+            "MainWindow",
+            "<html><head/><body><p>Новая строка</p></body></html>"))
         self.label_connector_space_bar_keys.setText(_translate(
             "MainWindow", "<html><head/><body><p>Пробел</p></body></html>"))
         self.connector_space_bar_keys.setPlaceholderText(
@@ -411,9 +416,11 @@ class UiMainWindow(object):
         self.connector_none_keys.setPlaceholderText(
             _translate("MainWindow", " <ctrl>+3"))
         self.label_connector_none.setText(_translate(
-            "MainWindow", "<html><head/><body><p><span style=\" font-size:12pt;\">Слитно</span></p></body></html>"))
+            "MainWindow",
+            "<html><head/><body><p><span style=\" font-size:12pt;\">Слитно</span></p></body></html>"))
         self.label_client_name_for_share.setText(_translate(
-            "MainWindow", "<html><head/><body><p><span style=\" font-size:12pt;\">Делиться c:</span></p></body></html>"))
+            "MainWindow",
+            "<html><head/><body><p><span style=\" font-size:12pt;\">Делиться c:</span></p></body></html>"))
         self.client_name_for_share.setPlaceholderText(
             _translate("MainWindow", "Имя клиента, ..."))
 
@@ -474,13 +481,16 @@ class ShowUiMainWindow(QtWidgets.QMainWindow):
 
     def __init__(self,
                  callback_settings_update,
-                 callback_apply_received_data
+                 callback_apply_received_data,
+                 # callback_is_need_reconnect,
                  ):
         super(ShowUiMainWindow, self).__init__()
         assert callable(callback_settings_update)
         assert callable(callback_apply_received_data)
+        # assert callable(callback_is_need_reconnect)
         self.callback_settings_update = callback_settings_update
         self.callback_apply_received_data = callback_apply_received_data
+        # self.callback_is_need_reconnect = callback_is_need_reconnect
         # ----------------------------------------------------------------------
         self.ui = UiMainWindow()
         self.ui.setupUi(self)
@@ -490,13 +500,14 @@ class ShowUiMainWindow(QtWidgets.QMainWindow):
         ''' Кнопка "Применить" '''
         self.ui.button_apply.clicked.connect(self.apply_parameters)
         # ----------------------------------------------------------------------
-        ''' Сворачивание в трей '''
+        ''' Трей '''
         self.tray_icon = QSystemTrayIcon(self)
-        self.tray_icon.setIcon(
-            self.style().standardIcon(QStyle.SP_ComputerIcon))
-        # self.tray_icon.setIcon(QIcon('icon.ico'))
+        # self.tray_icon.setIcon(
+        #     self.style().standardIcon(QStyle.SP_ComputerIcon))
+        self.show_icon()
 
         apply_data_action = QAction("Принять данные", self)
+        # is_need_reconnect_action = QAction("Переподключить", self)
         show_action = QAction("Показать", self)
         log_action = QAction("Показать лог", self)
         hide_action = QAction("Свернуть в трей", self)
@@ -504,6 +515,8 @@ class ShowUiMainWindow(QtWidgets.QMainWindow):
         #
         apply_data_action.triggered.connect(
             lambda: self.callback_apply_received_data())
+        # is_need_reconnect_action.triggered.connect(
+        #     lambda: self.callback_is_need_reconnect.set())
         show_action.triggered.connect(self.show)
         log_action.triggered.connect(lambda: self.log_window.show())
         hide_action.triggered.connect(self.hide)
@@ -511,6 +524,7 @@ class ShowUiMainWindow(QtWidgets.QMainWindow):
         #
         tray_menu = QMenu()
         tray_menu.addAction(apply_data_action)
+        # tray_menu.addAction(is_need_reconnect_action)
         tray_menu.addAction(show_action)
         tray_menu.addAction(log_action)
         tray_menu.addAction(hide_action)
@@ -527,6 +541,16 @@ class ShowUiMainWindow(QtWidgets.QMainWindow):
         """ Показать окно двойным кликом по иконке в трее """
         if reason == QSystemTrayIcon.DoubleClick:
             self.show()
+        #
+
+    def show_icon(self, color='blue'):
+        icon = 'icon_blue.png'
+        if color is 'red':
+            icon = 'icon_red.png'
+        if color is 'green':
+            icon = 'icon_green.png'
+        #
+        self.tray_icon.setIcon(QIcon(icon))
         #
 
     def closeEvent(self, event):
