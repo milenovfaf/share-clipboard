@@ -100,16 +100,16 @@ class ThreadedTCPRequestHandler:
         if client_version > self.app.server_version:
             self.app.server_version = client_version
         #
-        if client_version == round(self.app.server_version - 0.1, 1):
-            self.send_data({
-                'status': 'notification',
-                'msg': f'Доступна новая версия клиента: {self.app.server_version}'
-            })
-        if client_version < round(self.app.server_version - 0.1, 1):
-            self.send_data({
-                'status': 'error',
-                'msg': f'Версия клиента устарела, доступна версия: {self.app.server_version}'
-            })
+        # if client_version == round(self.app.server_version - 0.1, 1):
+        #     self.send_data({
+        #         'status': 'notification',
+        #         'msg': f'Доступна новая версия клиента: {self.app.server_version}'
+        #     })
+        # if client_version < round(self.app.server_version - 0.1, 1):
+        #     self.send_data({
+        #         'status': 'error',
+        #         'msg': f'Версия клиента устарела, доступна версия: {self.app.server_version}'
+        #     })
             # return False
         # ------------------------- #
         log.debug(f'------------------------------------------------------')

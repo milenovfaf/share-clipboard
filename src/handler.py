@@ -1,5 +1,6 @@
 import time
 import pyperclip
+import base64
 from PyQt5 import QtWidgets
 from pynput.keyboard import Controller, Key
 from pynput import keyboard
@@ -64,25 +65,53 @@ class HotkeysCopyPasteHandler(object):
     def synchronizer_clipboard(self, received_clipboard_data):
         """ Синхронизация буфера между клиентами """
         log.info('Обнаружено изменение буфера обмена')
-        clipboard_data = self.clipboard.text()  # Взять с буфера
-        #
-        if clipboard_data == received_clipboard_data:
+        # clipboard_data = self.clipboard.text()  # Взять с буфера
+        # ----------------------------------------------------------------------
+        mime_data = self.clipboard.mimeData()  # Взять с буфера
+        # ----------------------------------------------------------------------
+        type_data = None
+        clipboard_data = None
+        binary_image_data = None
+        if mime_data.hasText():
+            type_data = 'text'
+            clipboard_data = mime_data.text()
+            log.info(f'ЭТО ТЕКТ')
+        if mime_data.hasImage():
+            type_data = 'image/png'
+            binary_image_data = bytes(mime_data.data('image/png'))
+            encoded_data = base64.b64encode(binary_image_data).decode('utf-8')
+            clipboard_data = encoded_data
+            log.info(f'ЭТО ИЗОБРАЖЕНИЕ')
+
+        # if self.clipboard.mimeData().hasUrls():
+        #     type_data = 'list_urls'
+        #     clipboard_data = mimedata.urls()
+        #     log.info(f'ЭТО УРЛЫ {clipboard_data}')
+
+        # ----------------------------------------------------------------------
+        if not clipboard_data:
+            return
+
+        if clipboard_data == received_clipboard_data \
+                or binary_image_data == received_clipboard_data:
             self.list_clipboard_data.append(clipboard_data)
             log.info(f'{list(reversed(self.list_clipboard_data))}')
             return
         #
-        if clipboard_data == self.list_clipboard_data[-1]:
+        if clipboard_data == self.list_clipboard_data[-1] \
+                or binary_image_data == self.list_clipboard_data[-1]:
             return
         #
         self.list_clipboard_data.append(clipboard_data)
-        self.callback_on_copy(clipboard_data)
-
-        log.info(f'Сработала синхронизация: '
-                 f'{list((self.list_clipboard_data[-3:]))}')
-
-        if len(self.list_clipboard_data) >= 50:
-            del self.list_clipboard_data[:30]
+        self.callback_on_copy(clipboard_data, type_data)
         #
+        log.info(f'Сработала синхронизация: '
+                 f'{list(reversed(self.list_clipboard_data[-3:]))}')
+        #
+        if len(self.list_clipboard_data) >= 10:
+            del self.list_clipboard_data[:1]  # удалить первые 30
+
+        # ----------------------------------------------------------------------
 
     def _copy_join(self):
         """ Копирование и соединение содержимого с содержимым предидущего
@@ -108,7 +137,7 @@ class HotkeysCopyPasteHandler(object):
         pyperclip.copy(joined_content)
         # self.clipboard.setText(joined_content, mode=self.clipboard.Clipboard)
         # ------------------------------- #
-        self.callback_on_copy(joined_content)
+        self.callback_on_copy(joined_content, type_data='text')
         log.info(f'Сработал copy join: '
                  f'{list(reversed(self.list_clipboard_data))}')
     #

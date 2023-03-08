@@ -481,15 +481,15 @@ class ShowUiMainWindow(QtWidgets.QMainWindow):
 
     def __init__(self,
                  callback_settings_update,
-                 callback_apply_received_data,
+                 callback_apply_received_share_data,
                  # callback_is_need_reconnect,
                  ):
         super(ShowUiMainWindow, self).__init__()
         assert callable(callback_settings_update)
-        assert callable(callback_apply_received_data)
+        assert callable(callback_apply_received_share_data)
         # assert callable(callback_is_need_reconnect)
         self.callback_settings_update = callback_settings_update
-        self.callback_apply_received_data = callback_apply_received_data
+        self.callback_apply_received_data = callback_apply_received_share_data
         # self.callback_is_need_reconnect = callback_is_need_reconnect
         # ----------------------------------------------------------------------
         self.ui = UiMainWindow()
@@ -514,7 +514,7 @@ class ShowUiMainWindow(QtWidgets.QMainWindow):
         quit_action = QAction("Закрыть", self)
         #
         apply_data_action.triggered.connect(
-            lambda: self.callback_apply_received_data())
+            lambda: self.callback_apply_received_share_data())
         # is_need_reconnect_action.triggered.connect(
         #     lambda: self.callback_is_need_reconnect.set())
         show_action.triggered.connect(self.show)

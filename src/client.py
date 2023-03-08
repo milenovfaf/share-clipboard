@@ -65,9 +65,6 @@ class Client:
                 #
                 server_status = server_data.get('status')
                 #
-                if server_status == 'pong':
-                    continue
-                #
                 if server_status in ('error', 'notification'):
                     server_msg = server_data['msg']
                     callback_server_msg(
@@ -76,11 +73,12 @@ class Client:
                     continue
                 #
                 client_name = server_data.get('client_name')
-                clipboard_content = server_data.get('client_data')
+                type_data = server_data.get('type_data')
+                clipboard_data = server_data.get('client_data')
                 #
                 if client_name:
                     callback_server_data(
-                        client_name, clipboard_content
+                        client_name, type_data, clipboard_data
                     )
             #
             log.debug(f'Client.msg_server_handler - END thread')
@@ -179,12 +177,14 @@ class Client:
             client_name,
             client_id,
             target_client_name,
+            type_data,
             clipboard_data,
     ):
         return self.send_to_server({
             'client_name':        client_name,
             'client_id':          client_id,
             'target_client_name': target_client_name,
+            'type_data':          type_data,
             'client_data':        clipboard_data,
         })
 # ------------------------------------------------------------------------------

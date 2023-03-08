@@ -1,10 +1,13 @@
+import base64
 import time
 from threading import Thread
 from threading import Event
 
 import pyperclip
-from PyQt5 import QtWidgets
+from PyQt5 import QtWidgets, QtCore
 import sys
+
+from PyQt5.QtGui import QImage
 
 import app_settings
 import gui_qt
@@ -96,7 +99,7 @@ class App:
         # ----------------------------------------------------------------------
         self.gui = gui_qt.ShowUiMainWindow(
             self.callback_settings_update,
-            self.callback_apply_received_data,
+            self.callback_apply_received_share_data,
             # self.is_need_reconnect,
         )
         # ----------------------------------------------------------------------
@@ -107,7 +110,7 @@ class App:
         # ----------------------------------------------------------------------
         self.settings = None
         self.received_sync_clipboard_data = None
-        self.received_share_clipboard_data = None
+        self.list_received_share_data = []
         # ------ Буфер ---------------------------------------------------------
         self.clipboard = QtWidgets.QApplication.clipboard()
         # Если содержимое буфера обмена изменилось
@@ -140,6 +143,7 @@ class App:
         self.gui.show_gui(self.settings)
         #
         self.reconnection.start()
+        #
 
     def close_app(self):
         self.remote.disconnect()
@@ -197,7 +201,7 @@ class App:
         #
         log.debug(f'App.reconnect - thread END')
 
-    # ------ Apply -------------------------------------------------------------
+    # ------ Apply settings ----------------------------------------------------
 
     @callback_error_alert
     def callback_settings_update(self, new_settings: app_settings.AppSettings):
@@ -223,7 +227,7 @@ class App:
     # ------ Send --------------------------------------------------------------
 
     @callback_error_alert
-    def _callback_on_synchronization(self, clipboard_data):
+    def _callback_on_synchronization(self, clipboard_data, type_data):
         """ Отправка данных на сервер для клиента синхронизации """
         log.debug(f'App._callback_on_synchronization')
         with error_interceptor(
@@ -234,11 +238,12 @@ class App:
                 self.settings.client_id,
                 self.settings.client_name_for_sync,
                 # ----------- ^^^^^^ -------- ^^^^
+                type_data,
                 clipboard_data,
             )
 
     @callback_error_alert
-    def _callback_on_share(self, clipboard_data):
+    def _callback_on_share(self, clipboard_data, type_data):
         """ Отправка данных на сервер для клиента с которым делимся """
         log.debug(f'App._callback_on_share')
         with error_interceptor(
@@ -249,6 +254,7 @@ class App:
                 self.settings.client_id,
                 self.settings.client_name_for_share,
                 # ----------- ^^^^^ --------- ^^^^
+                type_data,
                 clipboard_data,
             )
         #
@@ -256,30 +262,32 @@ class App:
     # ------- Receive ----------------------------------------------------------
 
     @callback_error_alert
-    def _callback_receive_clipboard_data(self, client_name, clipboard_data):
+    def _callback_receive_clipboard_data(self, client_name, type_data, clipboard_data):
         """ Получение данных буфера обмена от сервера и синхронизация """
         log.debug(f'App._callback_receive_clipboard_data - '
                   f'client_name: {client_name}, '
+                  f'type_data: {type_data}, '
                   f'clipboard_data: {clipboard_data[:60]}')
-        if clipboard_data == self.clipboard.text():
-            log.debug(f'App._callback_receive_clipboard_data - PASS')
-            return
-        #
+
+        # Если имя отправителя нет в списке синхронизации
         if client_name not in self.settings.client_name_for_sync:
-            self.received_share_clipboard_data = clipboard_data
+            self.list_received_share_data.append({
+                'client_name': client_name,
+                'type_data': type_data,
+                'data': clipboard_data,
+            },)
+            #
+            if len(self.list_received_share_data) >= 10:
+                del self.list_received_share_data[:1]
+            #
             msg = f'Получены данные от: {client_name}'
             log.debug(f'App._callback_receive_clipboard_data - {msg}')
             self.gui.show_msg(msg, success=True, popup=True)
             self.gui.show_icon('green')
             return
         #
-        self.received_sync_clipboard_data = clipboard_data
-        # ---- Вызовит синхронизацию ---- #
-        log.debug(f'App._callback_receive_clipboard_data - '
-                  f'Добавлены полученные данные в буфер обмена')
-        pyperclip.copy(clipboard_data)
-        # self.clipboard.setText(clipboard_data, mode=self.clipboard.Clipboard)
-        # ------------------------------- #
+        self.apply_received_data(type_data, clipboard_data)
+        #
 
     @callback_error_alert
     def _callback_receive_msg(self, msg, success=None, popup=None):
@@ -289,15 +297,72 @@ class App:
     #
 
     @callback_error_alert
-    def callback_apply_received_data(self):
+    def callback_apply_received_share_data(self):
+        """ Применить полученные данные """
         log.debug(f'App.callback_apply_received_data')
-        if self.received_share_clipboard_data:
-            # ---- Вызовит синхронизацию ---- #
-            log.debug(f'App.callback_apply_received_data - '
-                      f'Добавлены полученные данные в буфер обмена')
-            pyperclip.copy(self.received_share_clipboard_data)
+        if self.list_received_share_data:
+            received_share_data = self.list_received_share_data[-1]
+            type_data = received_share_data.get('type_data')
+            clipboard_data = received_share_data.get('clipboard_data')
+            self.apply_received_data(type_data, clipboard_data)
             self.gui.show_icon('blue')
-            # ------------------------------- #
+        #
+
+    def apply_received_data(self, type_data, clipboard_data):
+        """ Применить полученные данные """
+        log.debug(f'App.apply_received_data - '
+                  f'type_data: {type_data}')
+        #
+        if type_data == 'text':
+            if clipboard_data == self.clipboard.text():
+                log.debug(f'App.apply_received_data - PASS')
+                return
+            #
+            self.received_sync_clipboard_data = clipboard_data
+            # ---- Вызовит синхронизацию ---- #
+            pyperclip.copy(clipboard_data)
+            log.debug(f'App.apply_received_data - '
+                      f'Добавлены полученные данные в буфер обмена')
+            return
+            #
+        #
+        if type_data == 'image/png':
+            # Декодирование данных изображения из строки в бинарный формат
+            binary_image_data = base64.b64decode(clipboard_data.encode('utf-8'))
+            # Создание объекта изображения
+            image = QImage.fromData(binary_image_data)
+            received_mime_data = QtCore.QMimeData()
+            # Запись изображения в mime-данные в формате PNG
+            image_buffer = QtCore.QBuffer()
+            image_buffer.open(QtCore.QBuffer.ReadWrite)
+            image.save(image_buffer, 'PNG')
+            #
+            received_mime_data.setData('image/png', image_buffer.data())
+            # ------------------------------------------------------------------
+            mime_data = self.clipboard.mimeData()
+            binary_data = bytes(mime_data.data("image/png"))
+            received_binary_data = bytes(received_mime_data.data("image/png"))
+            #
+            if received_binary_data == binary_data:
+                log.debug(f'App.apply_received_data - PASS')
+                return
+            # ------------------------------------------------------------------
+            self.received_sync_clipboard_data = binary_data
+            # ---- Вызовит синхронизацию ---- #
+            self.clipboard.setMimeData(received_mime_data)
+            log.debug(f'App.apply_received_data - '
+                      f'Добавлены полученные данные в буфер обмена')
+            return
+        #
+
+        #     ''' урлы нельзя сравнить, так как приходят не урлы а файлы,
+        #     нужно где то хранить изначальные данные буфера и их сравнивать '''
+        # if type_data == 'list_urls':
+        #     if clipboard_data == self.clipboard.mimeData().urls():
+        #         log.debug(f'App._callback_receive_clipboard_data - PASS')
+        #         return
+
+
 # ------------------------------------------------------------------------------
 
 
