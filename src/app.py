@@ -1,21 +1,25 @@
-import base64
+
+import os
+import sys
 import time
+import datetime
+import io
+import base64
 from threading import Thread
 from threading import Event
+from functools import wraps
+from pathlib import Path
+from contextlib import contextmanager
 
 import pyperclip
-from PyQt5 import QtWidgets, QtCore
-import sys
-
-from PyQt5.QtGui import QImage
+from PIL import Image
+from PyQt5 import QtWidgets, QtCore, QtGui
 
 import app_settings
 import gui_qt
 import handler
-from functools import wraps
-from pathlib import Path
-from contextlib import contextmanager
 import client
+
 import logging
 from logging import handlers
 log = logging.getLogger(__name__)
@@ -100,6 +104,7 @@ class App:
         self.gui = gui_qt.ShowUiMainWindow(
             self.callback_settings_update,
             self.callback_apply_received_share_data,
+            self.create_image_file,
             # self.is_need_reconnect,
         )
         # ----------------------------------------------------------------------
@@ -262,6 +267,13 @@ class App:
     # ------- Receive ----------------------------------------------------------
 
     @callback_error_alert
+    def _callback_receive_msg(self, msg, success=None, popup=None):
+        """ Получение сообщений от клиента и сервера """
+        log.debug(f'App._callback_receive_msg {msg}')
+        self.gui.show_msg(msg, success, popup=True)
+    #
+
+    @callback_error_alert
     def _callback_receive_clipboard_data(self, client_name, type_data, clipboard_data):
         """ Получение данных буфера обмена от сервера и синхронизация """
         log.debug(f'App._callback_receive_clipboard_data - '
@@ -290,13 +302,6 @@ class App:
         #
 
     @callback_error_alert
-    def _callback_receive_msg(self, msg, success=None, popup=None):
-        """ Получение сообщений от клиента и сервера """
-        log.debug(f'App._callback_receive_msg {msg}')
-        self.gui.show_msg(msg, success, popup=True)
-    #
-
-    @callback_error_alert
     def callback_apply_received_share_data(self):
         """ Применить полученные данные """
         log.debug(f'App.callback_apply_received_data')
@@ -307,6 +312,8 @@ class App:
             self.apply_received_data(type_data, clipboard_data)
             self.gui.show_icon('blue')
         #
+
+    # ------- handling ---------------------------------------------------------
 
     def apply_received_data(self, type_data, clipboard_data):
         """ Применить полученные данные """
@@ -326,11 +333,12 @@ class App:
             return
             #
         #
-        if type_data == 'image/png':
+        # if type_data == 'image/png':
+        if type_data == None:
             # Декодирование данных изображения из строки в бинарный формат
             binary_image_data = base64.b64decode(clipboard_data.encode('utf-8'))
             # Создание объекта изображения
-            image = QImage.fromData(binary_image_data)
+            image = QtGui.QImage.fromData(binary_image_data)
             received_mime_data = QtCore.QMimeData()
             # Запись изображения в mime-данные в формате PNG
             image_buffer = QtCore.QBuffer()
@@ -347,7 +355,7 @@ class App:
                 log.debug(f'App.apply_received_data - PASS')
                 return
             # ------------------------------------------------------------------
-            self.received_sync_clipboard_data = binary_data
+            self.received_sync_clipboard_data = received_binary_data
             # ---- Вызовит синхронизацию ---- #
             self.clipboard.setMimeData(received_mime_data)
             log.debug(f'App.apply_received_data - '
@@ -362,7 +370,73 @@ class App:
         #         log.debug(f'App._callback_receive_clipboard_data - PASS')
         #         return
 
+    def create_image_file(self):
+        directory = "images"
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+        #
+        if isinstance(self.received_sync_clipboard_data, bytes):
+            now = datetime.datetime.now()
+            filename = now.strftime('%Y-%m-%d_%H-%M-%S.png')
+            file_path = os.path.join(directory, filename)
+            #
+            # Преобразуем бинарные данные в объект Image
+            image = Image.open(io.BytesIO(self.received_sync_clipboard_data))
+            image.save(file_path)
+            #
+            log.debug(f'App.create_image_file - Файл создан')
+            #
+            self.add_file_url_to_clipboard(file_path)
+        #
 
+    def add_file_url_to_clipboard(self, file_path):
+        # if os.name == 'nt':  # если операционная система - Windows
+        # Получаем текущую рабочую директорию
+        working_dir = os.getcwd()
+        absolute_file_path = os.path.join(working_dir, file_path)
+
+        # Создание списка с URL-адресами к файлам
+        # urls = [QtCore.QUrl(absolute_file_path)]
+        urls = [QtCore.QUrl.fromLocalFile(absolute_file_path), ]
+        #
+        mime_data = QtCore.QMimeData()
+        mime_data.setUrls(urls)
+
+        # для Unix - подобных систем, используя setUrls, и для CF_HDROP для
+        # Windows, используя setData
+
+        # [PyQt5.QtCore.QUrl('file:///C:/Users/user/Desktop/test.png')]
+
+        # if os.name == 'nt':  # Windows
+        #     # [QtCore.QUrl('file:///C:/Users/user/Desktop/test.png')]
+        #
+        #     # file_list_bytes = QtCore.QByteArray()
+        #     # file_list_bytes += QtCore.QByteArray(
+        #     #     absolute_file_path.encode('utf-16le')
+        #     # ) + QtCore.QByteArray(2)
+        #     #
+        #     # mime_data.setData("application/x-drop", file_list_bytes)
+        #
+        # else:  # Unix
+        #     mime_data.setUrls([QtCore.QUrl.fromLocalFile(absolute_file_path)])
+
+        # file:///home/user/CODE/projects/share-clipboard/src/images/2023-03-09_00-03-44.png
+
+        # file_paths = ['/path/to/file1', '/path/to/file2']
+        # mime_data.setUrls(
+        #     [QtCore.QUrl.fromLocalFile(path) for path in file_paths])
+        # # Set the MIME data for Windows
+        # if sys.platform == 'win32':
+        #     file_list = "\n".join([f"\"{path}\"" for path in file_paths])
+        #     drop_data = f"Shell IDList Array\n{file_list}\x00".encode('utf-8')
+        #     mime_data.setData("application/x-drop", drop_data)
+
+
+        # ---- Вызовит синхронизацию ---- #
+        self.clipboard.setMimeData(mime_data)
+        log.debug(f'App.add_file_url_to_clipboard - '
+                  f'Добавлен список ссылок на файлы в буфер обмена')
+    #
 # ------------------------------------------------------------------------------
 
 

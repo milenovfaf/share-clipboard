@@ -1,6 +1,8 @@
+import os
+
 from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtGui import QIcon, QTextCursor
-from PyQt5.QtWidgets import QSystemTrayIcon, QMenu, QAction, QStyle, qApp
+from PyQt5.QtWidgets import QSystemTrayIcon, QMenu, QAction, QStyle, qApp, QFileDialog
 import app_settings
 import logging
 
@@ -482,6 +484,7 @@ class ShowUiMainWindow(QtWidgets.QMainWindow):
     def __init__(self,
                  callback_settings_update,
                  callback_apply_received_share_data,
+                 callback_create_image_file,
                  # callback_is_need_reconnect,
                  ):
         super(ShowUiMainWindow, self).__init__()
@@ -490,6 +493,7 @@ class ShowUiMainWindow(QtWidgets.QMainWindow):
         # assert callable(callback_is_need_reconnect)
         self.callback_settings_update = callback_settings_update
         self.callback_apply_received_data = callback_apply_received_share_data
+        self.callback_create_image_file = callback_create_image_file
         # self.callback_is_need_reconnect = callback_is_need_reconnect
         # ----------------------------------------------------------------------
         self.ui = UiMainWindow()
@@ -506,24 +510,43 @@ class ShowUiMainWindow(QtWidgets.QMainWindow):
         #     self.style().standardIcon(QStyle.SP_ComputerIcon))
         self.show_icon()
 
-        apply_data_action = QAction("Принять данные", self)
+        apply_data_action = QAction('Принять данные', self)
+        create_file_img_action = QAction('Создать файл изображения', self)
+        directory_action = QAction('Сохранить как', self)
         # is_need_reconnect_action = QAction("Переподключить", self)
-        show_action = QAction("Показать", self)
-        log_action = QAction("Показать лог", self)
-        hide_action = QAction("Свернуть в трей", self)
-        quit_action = QAction("Закрыть", self)
+        show_action = QAction('Показать', self)
+        log_action = QAction('Показать лог', self)
+        hide_action = QAction('Свернуть в трей', self)
+        quit_action = QAction('Закрыть', self)
         #
         apply_data_action.triggered.connect(
             lambda: self.callback_apply_received_share_data())
+        create_file_img_action.triggered.connect(
+            lambda: self.callback_create_image_file())
+        directory_action.triggered.connect(
+            self.select_a_directory
+        )
         # is_need_reconnect_action.triggered.connect(
         #     lambda: self.callback_is_need_reconnect.set())
-        show_action.triggered.connect(self.show)
-        log_action.triggered.connect(lambda: self.log_window.show())
-        hide_action.triggered.connect(self.hide)
-        quit_action.triggered.connect(qApp.quit)
+        show_action.triggered.connect(
+            self.show
+        )
+        log_action.triggered.connect(
+            lambda: self.log_window.show()
+        )
+        hide_action.triggered.connect(
+            self.hide
+        )
+        quit_action.triggered.connect(
+            qApp.quit
+        )
         #
         tray_menu = QMenu()
         tray_menu.addAction(apply_data_action)
+        tray_menu.addSeparator()
+        tray_menu.addAction(create_file_img_action)
+        tray_menu.addAction(directory_action)
+        tray_menu.addSeparator()
         # tray_menu.addAction(is_need_reconnect_action)
         tray_menu.addAction(show_action)
         tray_menu.addAction(log_action)
@@ -537,6 +560,28 @@ class ShowUiMainWindow(QtWidgets.QMainWindow):
         self.old_settings = None
         # ----------------------------------------------------------------------
 
+    @staticmethod
+    def _get_desktop_path():
+        """ Получение пути рабочего стола """
+        if os.name == 'nt':  # Windows
+            desktop_path = os.path.join(os.environ['USERPROFILE'], 'Desktop')
+            return desktop_path
+        if os.name == 'posix':  # Unix
+            desktop_path = os.path.join(os.path.expanduser('~'), 'Desktop')
+            return desktop_path
+        #
+
+    def directory_selection_window(self):
+        """ Окно выбора дериктории """
+        default_path = self._get_desktop_path()
+        file_dialog = QFileDialog()
+        file_dialog.setOption(QFileDialog.ShowDirsOnly)
+        directory = file_dialog.getExistingDirectory(
+            None, 'Выберите директорию', default_path
+        )
+        print(directory)  # Выводим путь к выбранной директории
+        #
+
     def on_tray_icon_activated(self, reason):
         """ Показать окно двойным кликом по иконке в трее """
         if reason == QSystemTrayIcon.DoubleClick:
@@ -544,6 +589,7 @@ class ShowUiMainWindow(QtWidgets.QMainWindow):
         #
 
     def show_icon(self, color='blue'):
+        """ Отображение иконки в трее """
         icon = 'icon_blue.png'
         if color is 'red':
             icon = 'icon_red.png'
@@ -621,6 +667,7 @@ class ShowUiMainWindow(QtWidgets.QMainWindow):
     # --------------------------------------------------------------------------
 
     def show_msg(self, msg, success=False, popup=False):
+        """ Вывод сообщений """
         if popup:
             self.tray_icon.showMessage(
                 "Share Clipboard",
@@ -640,7 +687,7 @@ class ShowUiMainWindow(QtWidgets.QMainWindow):
     # --------------------------------------------------------------------------
 
     def apply_parameters(self) -> None:
-        """ Применение параметров """
+        """ Применение новых параметров """
         client_name_for_sync = self.ui.client_name_for_sync.text()
         if not client_name_for_sync:
             client_name_for_sync = []

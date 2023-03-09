@@ -92,14 +92,12 @@ class HotkeysCopyPasteHandler(object):
         if not clipboard_data:
             return
 
-        if clipboard_data == received_clipboard_data \
-                or binary_image_data == received_clipboard_data:
+        if (clipboard_data or binary_image_data) == received_clipboard_data:
             self.list_clipboard_data.append(clipboard_data)
             log.info(f'{list(reversed(self.list_clipboard_data))}')
             return
         #
-        if clipboard_data == self.list_clipboard_data[-1] \
-                or binary_image_data == self.list_clipboard_data[-1]:
+        if (clipboard_data or binary_image_data) == self.list_clipboard_data[-1]:
             return
         #
         self.list_clipboard_data.append(clipboard_data)
