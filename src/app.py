@@ -1,4 +1,3 @@
-
 import os
 import sys
 import time
@@ -19,77 +18,15 @@ import app_settings
 import gui_qt
 import handler
 import client
+import servise
 
 import logging
 from logging import handlers
+
 log = logging.getLogger(__name__)
 
 
 # ------------------------------------------------------------------------------
-
-@contextmanager
-def error_interceptor(gui, msg=None, success=False):
-    """ Обработка ошибок """
-    try:
-        gui.show_msg(msg='')
-        if success:
-            gui.show_msg('Подключено к серверу', success)
-            gui.show_icon('blue')
-        yield None
-    except (ConnectionError, ConnectionRefusedError) as e:
-        log.exception(e)
-        gui.show_msg('Нет подключения к серверу')
-        gui.show_icon('red')
-    except Exception as e:
-        log.exception(e)
-        gui.show_msg(f'{msg} ({e})')
-        gui.show_icon('red')
-    finally:
-        pass
-
-
-def callback_error_alert(fn):
-    @wraps(fn)
-    def wrapper(*args, **kwargs):
-        try:
-            return fn(*args, **kwargs)
-        except Exception as e:
-            log.exception(e)
-            print(e)
-            raise
-        #
-    return wrapper
-
-# ------------------------------------------------------------------------------
-
-
-def _load_settings(settings_file_path):
-    """ Чтение файла настроек """
-    log.debug(f'_load_settings - {settings_file_path}')
-    if not Path(settings_file_path).exists():
-        return
-    #
-    try:
-        with open(settings_file_path, 'r') as file:
-            old_settings = app_settings.AppSettings.load_from_file(file)
-            return old_settings
-        #
-    except app_settings.EmtpyFileSettingsError as e:
-        log.exception(e)
-    #
-
-
-def _create_settings(settings_file_path):
-    """ Создание файла настроек """
-    log.debug(f'_create_settings - {settings_file_path}')
-    #
-    old_settings = app_settings.get_default_app_settings()
-    with open(settings_file_path, 'w+') as file:
-        old_settings.save_to_file(file)
-    #
-    return old_settings
-
-
 # ------------------------------------------------------------------------------
 
 
@@ -98,13 +35,15 @@ class App:
         self.settings_file_path = settings_file_path
         # ----------------------------------------------------------------------
         self.hotkey_handler = handler.HotkeysCopyPasteHandler(
-            self._callback_on_synchronization, self._callback_on_share,
+            self._callback_on_synchronization,
+            self._callback_on_share,
         )
         # ----------------------------------------------------------------------
         self.gui = gui_qt.ShowUiMainWindow(
             self.callback_settings_update,
             self.callback_apply_received_share_data,
             self.create_image_file,
+            self.callback_show_image,
             # self.is_need_reconnect,
         )
         # ----------------------------------------------------------------------
@@ -134,13 +73,13 @@ class App:
     def start_app(self):
         """ Старт """
         log.debug(f'App.start_app - START')
-        self.settings = _load_settings(self.settings_file_path)
+        self.settings = servise.load_settings(self.settings_file_path)
         if self.settings is None:
-            self.settings = _create_settings(self.settings_file_path)
+            self.settings = servise.create_settings(self.settings_file_path)
         assert isinstance(self.settings, app_settings.AppSettings)
         log.debug(f'App.start_app - settings: {self.settings.to_dict()}')
         #
-        with error_interceptor(
+        with servise.error_interceptor(
                 self.gui, 'Ошибка синтаксиса'
         ):
             self.hotkey_handler.start(self.settings)
@@ -178,7 +117,7 @@ class App:
             log.info('RECONNECT')
             self.is_need_reconnect.clear()
             #
-            with error_interceptor(
+            with servise.error_interceptor(
                     self.gui, success=True
             ):
                 if self.remote.is_connected:
@@ -191,7 +130,7 @@ class App:
                 )  # ---------------------------- #
                 self.remote.connect(self.settings)
                 log.debug('App.reconnect - try reconnect - SUCCESS')
-            #
+
             _sleep_value = _reconnect_sleep_map[-1]
             if _reconnect_id < len(_reconnect_sleep_map):
                 _sleep_value = _reconnect_sleep_map[_reconnect_id]
@@ -208,15 +147,16 @@ class App:
 
     # ------ Apply settings ----------------------------------------------------
 
-    @callback_error_alert
+    @servise.callback_error_alert
     def callback_settings_update(self, new_settings: app_settings.AppSettings):
         """ Рестарт c новыми настройками """
         self.settings = new_settings
         with open(self.settings_file_path, 'w') as file:
             self.settings.save_to_file(file)
         #
-        log.debug(f'App.callback_settings_update - new_settings {self.settings.to_dict()}')
-        with error_interceptor(
+        log.debug(
+            f'App.callback_settings_update - new_settings {self.settings.to_dict()}')
+        with servise.error_interceptor(
                 self.gui, 'Ошибка синтаксиса'
         ):
             self.hotkey_handler.stop()
@@ -231,11 +171,11 @@ class App:
 
     # ------ Send --------------------------------------------------------------
 
-    @callback_error_alert
-    def _callback_on_synchronization(self, clipboard_data, type_data):
+    @servise.callback_error_alert
+    def _callback_on_synchronization(self, type_data, clipboard_data):
         """ Отправка данных на сервер для клиента синхронизации """
         log.debug(f'App._callback_on_synchronization')
-        with error_interceptor(
+        with servise.error_interceptor(
                 self.gui, success=True
         ):
             self.remote.send_clipboard_content(
@@ -247,11 +187,11 @@ class App:
                 clipboard_data,
             )
 
-    @callback_error_alert
-    def _callback_on_share(self, clipboard_data, type_data):
+    @servise.callback_error_alert
+    def _callback_on_share(self, type_data, clipboard_data):
         """ Отправка данных на сервер для клиента с которым делимся """
         log.debug(f'App._callback_on_share')
-        with error_interceptor(
+        with servise.error_interceptor(
                 self.gui, success=True
         ):
             self.remote.send_clipboard_content(
@@ -266,15 +206,17 @@ class App:
 
     # ------- Receive ----------------------------------------------------------
 
-    @callback_error_alert
+    @servise.callback_error_alert
     def _callback_receive_msg(self, msg, success=None, popup=None):
         """ Получение сообщений от клиента и сервера """
         log.debug(f'App._callback_receive_msg {msg}')
         self.gui.show_msg(msg, success, popup=True)
+
     #
 
-    @callback_error_alert
-    def _callback_receive_clipboard_data(self, client_name, type_data, clipboard_data):
+    @servise.callback_error_alert
+    def _callback_receive_clipboard_data(self, client_name, type_data,
+                                         clipboard_data):
         """ Получение данных буфера обмена от сервера и синхронизация """
         log.debug(f'App._callback_receive_clipboard_data - '
                   f'client_name: {client_name}, '
@@ -287,13 +229,14 @@ class App:
                 'client_name': client_name,
                 'type_data': type_data,
                 'data': clipboard_data,
-            },)
+            }, )
             #
             if len(self.list_received_share_data) >= 10:
                 del self.list_received_share_data[:1]
             #
             msg = f'Получены данные от: {client_name}'
             log.debug(f'App._callback_receive_clipboard_data - {msg}')
+            #
             self.gui.show_msg(msg, success=True, popup=True)
             self.gui.show_icon('green')
             return
@@ -301,21 +244,45 @@ class App:
         self.apply_received_data(type_data, clipboard_data)
         #
 
-    @callback_error_alert
+    @servise.callback_error_alert
     def callback_apply_received_share_data(self):
         """ Применить полученные данные """
         log.debug(f'App.callback_apply_received_data')
         if self.list_received_share_data:
             received_share_data = self.list_received_share_data[-1]
+            #
             type_data = received_share_data.get('type_data')
-            clipboard_data = received_share_data.get('clipboard_data')
-            self.apply_received_data(type_data, clipboard_data)
+            clipboard_data = received_share_data.get('data')
+            #
+            log.debug(f'App.callback_apply_received_share_data - '
+                      f'type_data: {type_data}, '
+                      f'clipboard_data: {clipboard_data[:60]}')
+            #
+            self.apply_received_data(type_data, clipboard_data,
+                                     show_window=True)
+            #
             self.gui.show_icon('blue')
+            #
         #
+        # Тест
+        # type_data = 'image/png'
+        # data = 'iVBORw0KGgoAAAANSUhEUgAAAGwAAACJCAYAAADJ7938AAAABHNCSVQICAgIfAhkiAAAAvlJREFUeF7tndFKBEEQA13x/39ZXWFBln0QzOQm6boXOZF0WzUZ70D0+Px+vPGIIfAesymL/hBAWNhBQBjCwgiErUvDEBZGIGxdGoawMAJh69IwhIURCFuXhiEsjEDYujQMYWEEwtalYQgLIxC2Lg1DWBiBsHVpGMLCCIStS8MQFkYgbF0ahrAwAmHr0jCEhREIW5eGISyMQNi6NAxhYQTC1qVhCAsjELYuDUNYGIGwdWkYwsIIhK37Ebbv8nWP41g+4z8DRgvbXc6T2JHCEkVd8kYJSxY1SliDqEtY/cv6JlmntNorsU1UdcNaZZ3S6q7EZlmVwq6ro/VjVcPa21XVsAmyqoS1XoH376viSpzSLhp2P74Bz+MbNqldNCygUfcVoxs2rV007H58A55HNyyAr3xFhMmRrg1E2Fq+8vRYYRNfcJz2Y4XJj25IIMJCRF1rIgxhYQTC1o1t2NR/exYrLKwYsnURJkPpCUKYh7NsCsJkKD1B0cImvvCIFuY503tNiRc2rWXxwvY6/+u3qRA2qWUVwtaf630m1Aib0rIaYWcHJkirErbPxbVukzph7S2rE9Z+NVYKu6Q1tq1W2PVTpE1avbC2to0Q9rtt6Y0bJaxBXO1fwvnLO6Gntu3+G8WjhT1JfZL49HWv+tzIK/FVsBVzEaagaMxAmBG2YhTCFBSNGQgzwlaMQpiCojEDYUbYilEIU1A0ZiDMCFsxCmEKisYMhBlhK0YhTEHRmIEwI2zFKIQpKBozEGaErRiFMAVFYwbCjLAVoxCmoGjMQJgRtmIUwhQUjRkIM8JWjEKYgqIxA2FG2IpRCFNQNGYgzAhbMQphCorGDIQZYStGIUxB0ZiBMCNsxSiEKSgaMxBmhK0YhTAFRWMGwoywFaMQpqBozECYEbZiFMIUFI0ZCDPCVoxCmIKiMQNhRtiKUQhTUDRmIMwIWzEKYQqKxgyEGWErRiFMQdGYgTAjbMUohCkoGjMQZoStGIUwBUVjBsKMsBWjEKagaMz4ArtnPhXIRKmLAAAAAElFTkSuQmCC'
+        # self.apply_received_data(type_data, data, show_window=True)
 
     # ------- handling ---------------------------------------------------------
 
-    def apply_received_data(self, type_data, clipboard_data):
+    @servise.callback_error_alert
+    def callback_show_image(self):
+        log.debug(f'App.callback_show_image')
+        if not isinstance(self.received_sync_clipboard_data, bytes):
+            return
+        image, _ = servise.create_image_object(
+            self.received_sync_clipboard_data
+        )
+        self.gui.image_window.show_window(image)
+    #
+
+    def apply_received_data(self, type_data, clipboard_data, show_window=None):
         """ Применить полученные данные """
         log.debug(f'App.apply_received_data - '
                   f'type_data: {type_data}')
@@ -333,18 +300,13 @@ class App:
             return
             #
         #
-        # if type_data == 'image/png':
-        if type_data == None:
+        if type_data == 'image/png':
             # Декодирование данных изображения из строки в бинарный формат
             binary_image_data = base64.b64decode(clipboard_data.encode('utf-8'))
-            # Создание объекта изображения
-            image = QtGui.QImage.fromData(binary_image_data)
-            received_mime_data = QtCore.QMimeData()
-            # Запись изображения в mime-данные в формате PNG
-            image_buffer = QtCore.QBuffer()
-            image_buffer.open(QtCore.QBuffer.ReadWrite)
-            image.save(image_buffer, 'PNG')
             #
+            image, image_buffer = servise.create_image_object(binary_image_data)
+            #
+            received_mime_data = QtCore.QMimeData()
             received_mime_data.setData('image/png', image_buffer.data())
             # ------------------------------------------------------------------
             mime_data = self.clipboard.mimeData()
@@ -360,9 +322,11 @@ class App:
             self.clipboard.setMimeData(received_mime_data)
             log.debug(f'App.apply_received_data - '
                       f'Добавлены полученные данные в буфер обмена')
+            #
+            if show_window:
+                self.gui.image_window.show_window(image)
             return
         #
-
         #     ''' урлы нельзя сравнить, так как приходят не урлы а файлы,
         #     нужно где то хранить изначальные данные буфера и их сравнивать '''
         # if type_data == 'list_urls':
@@ -370,73 +334,41 @@ class App:
         #         log.debug(f'App._callback_receive_clipboard_data - PASS')
         #         return
 
-    def create_image_file(self):
-        directory = "images"
+    def create_image_file(self, directory="images", file_name=None):
         if not os.path.exists(directory):
-            os.makedirs(directory)
+            # os.makedirs(directory)
+            return
         #
-        if isinstance(self.received_sync_clipboard_data, bytes):
-            now = datetime.datetime.now()
-            filename = now.strftime('%Y-%m-%d_%H-%M-%S.png')
-            file_path = os.path.join(directory, filename)
+        if not isinstance(self.received_sync_clipboard_data, bytes):
+            return
+        #
+        image = Image.open(io.BytesIO(self.received_sync_clipboard_data))
+        #
+        if file_name:
+            name, extension = os.path.splitext(file_name)
+            if not extension:
+                file_name = file_name + '.png'
+                absolute_file_path = os.path.join(directory, file_name)
+                image.save(absolute_file_path)
+                log.debug(f'App.create_image_file - Файл создан')
+                return
             #
-            # Преобразуем бинарные данные в объект Image
-            image = Image.open(io.BytesIO(self.received_sync_clipboard_data))
+            if extension != '.png':
+                msg = 'Указано не верное расширение'
+                self.gui.show_msg(msg, success=True, popup=True)
+                return
+            #
+            file_path = os.path.join(directory, file_name)
             image.save(file_path)
-            #
             log.debug(f'App.create_image_file - Файл создан')
+            return
             #
-            self.add_file_url_to_clipboard(file_path)
+        now = datetime.datetime.now()
+        file_name = now.strftime('%Y-%m-%d_%H-%M-%S.png')
+        absolute_file_path = os.path.join(directory, file_name)
+        image.save(absolute_file_path)
         #
 
-    def add_file_url_to_clipboard(self, file_path):
-        # if os.name == 'nt':  # если операционная система - Windows
-        # Получаем текущую рабочую директорию
-        working_dir = os.getcwd()
-        absolute_file_path = os.path.join(working_dir, file_path)
-
-        # Создание списка с URL-адресами к файлам
-        # urls = [QtCore.QUrl(absolute_file_path)]
-        urls = [QtCore.QUrl.fromLocalFile(absolute_file_path), ]
-        #
-        mime_data = QtCore.QMimeData()
-        mime_data.setUrls(urls)
-
-        # для Unix - подобных систем, используя setUrls, и для CF_HDROP для
-        # Windows, используя setData
-
-        # [PyQt5.QtCore.QUrl('file:///C:/Users/user/Desktop/test.png')]
-
-        # if os.name == 'nt':  # Windows
-        #     # [QtCore.QUrl('file:///C:/Users/user/Desktop/test.png')]
-        #
-        #     # file_list_bytes = QtCore.QByteArray()
-        #     # file_list_bytes += QtCore.QByteArray(
-        #     #     absolute_file_path.encode('utf-16le')
-        #     # ) + QtCore.QByteArray(2)
-        #     #
-        #     # mime_data.setData("application/x-drop", file_list_bytes)
-        #
-        # else:  # Unix
-        #     mime_data.setUrls([QtCore.QUrl.fromLocalFile(absolute_file_path)])
-
-        # file:///home/user/CODE/projects/share-clipboard/src/images/2023-03-09_00-03-44.png
-
-        # file_paths = ['/path/to/file1', '/path/to/file2']
-        # mime_data.setUrls(
-        #     [QtCore.QUrl.fromLocalFile(path) for path in file_paths])
-        # # Set the MIME data for Windows
-        # if sys.platform == 'win32':
-        #     file_list = "\n".join([f"\"{path}\"" for path in file_paths])
-        #     drop_data = f"Shell IDList Array\n{file_list}\x00".encode('utf-8')
-        #     mime_data.setData("application/x-drop", drop_data)
-
-
-        # ---- Вызовит синхронизацию ---- #
-        self.clipboard.setMimeData(mime_data)
-        log.debug(f'App.add_file_url_to_clipboard - '
-                  f'Добавлен список ссылок на файлы в буфер обмена')
-    #
 # ------------------------------------------------------------------------------
 
 
@@ -467,7 +399,8 @@ def init_logging(app):
     console_handler.setLevel(logging.DEBUG)
     console_handler.setFormatter(formatter)
     # ------------------------------------------------- #
-    file_handler = logging.handlers.RotatingFileHandler('logs.log', maxBytes=1024)
+    file_handler = logging.handlers.RotatingFileHandler('logs.log',
+                                                        maxBytes=1024)
     file_handler.setLevel(logging.DEBUG)
     file_handler.setFormatter(formatter)
     # ------------------------------------------------- #

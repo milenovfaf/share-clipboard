@@ -97,11 +97,10 @@ class HotkeysCopyPasteHandler(object):
             log.info(f'{list(reversed(self.list_clipboard_data))}')
             return
         #
-        if (clipboard_data or binary_image_data) == self.list_clipboard_data[-1]:
-            return
+        if (clipboard_data or binary_image_data) != self.list_clipboard_data[-1]:
+            self.list_clipboard_data.append(clipboard_data)
         #
-        self.list_clipboard_data.append(clipboard_data)
-        self.callback_on_copy(clipboard_data, type_data)
+        self.callback_on_copy(type_data, clipboard_data)
         #
         log.info(f'Сработала синхронизация: '
                  f'{list(reversed(self.list_clipboard_data[-3:]))}')
@@ -115,37 +114,40 @@ class HotkeysCopyPasteHandler(object):
         """ Копирование и соединение содержимого с содержимым предидущего
         копирования """
         log.info('Обнаружена комбинация клавиш COPY_JOIN')
-        # pyautogui.hotkey('ctrl', 'c')
-        with self.keyboard.pressed(Key.ctrl):
-            self.keyboard.press('c')
-            self.keyboard.release('c')
+        return
+        # # pyautogui.hotkey('ctrl', 'c')
+        # with self.keyboard.pressed(Key.ctrl):
+        #     self.keyboard.press('c')
+        #     self.keyboard.release('c')
+        # #
+        # # time.sleep(1)
+        # previous_content = self.list_clipboard_data[-2]
+        # new_content = self.list_clipboard_data[-1]
+        # content = previous_content, new_content
+        # joined_content = self.connector.join(content)
+        # log.info(f'previous_content: {previous_content}'
+        #          f'new_content: {new_content}'
+        #          f'joined_content: {joined_content}')
         #
-        # time.sleep(1)
-        previous_content = self.list_clipboard_data[-2]
-        new_content = self.list_clipboard_data[-1]
-        content = previous_content, new_content
-        joined_content = self.connector.join(content)
-        log.info(f'previous_content: {previous_content}'
-                 f'new_content: {new_content}'
-                 f'joined_content: {joined_content}')
-
-        #
-        self.list_clipboard_data.append(joined_content)
-        # ---- Вызовит синхронизацию ---- #
-        pyperclip.copy(joined_content)
-        # self.clipboard.setText(joined_content, mode=self.clipboard.Clipboard)
-        # ------------------------------- #
-        self.callback_on_copy(joined_content, type_data='text')
-        log.info(f'Сработал copy join: '
-                 f'{list(reversed(self.list_clipboard_data))}')
+        # #
+        # self.list_clipboard_data.append(joined_content)
+        # # ---- Вызовит синхронизацию ---- #
+        # pyperclip.copy(joined_content)
+        # # self.clipboard.setText(joined_content, mode=self.clipboard.Clipboard)
+        # # ------------------------------- #
+        # self.callback_on_copy(joined_content, type_data='text')
+        # log.info(f'Сработал copy join: '
+        #          f'{list(reversed(self.list_clipboard_data))}')
     #
 
     def _share_clipboard(self):
         """ Поделиться содержимым буфера обмена """
         log.info('Обнаружена комбинация клавиш share_keys')
+        #
+        type_data = 'text'
         clipboard_data = self.clipboard.text()
         #
-        self.callback_on_copy_share(clipboard_data)
+        self.callback_on_copy_share(type_data, clipboard_data)
 
     def _connector_new_line(self) -> None:
         log.info('Обнаружена комбинация клавиш connector_new_line')

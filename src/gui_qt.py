@@ -1,437 +1,153 @@
 import os
-
-from PyQt5 import QtCore, QtWidgets
+from PyQt5 import QtCore, QtWidgets, QtGui
 from PyQt5.QtGui import QIcon, QTextCursor
-from PyQt5.QtWidgets import QSystemTrayIcon, QMenu, QAction, QStyle, qApp, QFileDialog
-import app_settings
-import logging
+from PyQt5.QtWidgets import QSystemTrayIcon, QMenu, QAction, qApp, \
+    QFileDialog
+from PyQt5.QtCore import Qt
 
+import app_settings
+import gui_qtdesigner
+import servise
+
+import logging
 log = logging.getLogger(__name__)
 
 
-# qt http://qtdocs.narod.ru/4.1.0/doc/html/qwidget.html#minimized-prop
+def _window_placement(window):
+    """ Место размещения окна на экране """
+    frame_gm = window.frameGeometry()
+    screen = QtWidgets.QApplication.desktop().screenNumber(
+        QtWidgets.QApplication.desktop().cursor().pos())
+    center_point = QtWidgets.QApplication.desktop().screenGeometry(
+        screen).center()
+    frame_gm.moveCenter(center_point)
+    window.move(frame_gm.topLeft())
 
 
-class UiMainWindow(object):
-    def setupUi(self, MainWindow):
-        MainWindow.setObjectName("MainWindow")
-        MainWindow.setEnabled(True)
-        MainWindow.resize(501, 404)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Fixed,
-                                           QtWidgets.QSizePolicy.Fixed)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(
-            MainWindow.sizePolicy().hasHeightForWidth())
-        MainWindow.setSizePolicy(sizePolicy)
-        MainWindow.setMinimumSize(QtCore.QSize(501, 404))
-        MainWindow.setMaximumSize(QtCore.QSize(501, 404))
-        MainWindow.setAcceptDrops(False)
-        self.centralwidget = QtWidgets.QWidget(MainWindow)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred,
-                                           QtWidgets.QSizePolicy.Preferred)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(
-            self.centralwidget.sizePolicy().hasHeightForWidth())
-        self.centralwidget.setSizePolicy(sizePolicy)
-        self.centralwidget.setObjectName("centralwidget")
-        self.ip = QtWidgets.QLineEdit(self.centralwidget)
-        self.ip.setGeometry(QtCore.QRect(16, 40, 151, 31))
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred,
-                                           QtWidgets.QSizePolicy.Preferred)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.ip.sizePolicy().hasHeightForWidth())
-        self.ip.setSizePolicy(sizePolicy)
-        self.ip.setStyleSheet("font-size: 10pt;")
-        self.ip.setText("")
-        self.ip.setMaxLength(20)
-        self.ip.setClearButtonEnabled(False)
-        self.ip.setObjectName("ip")
-        self.port = QtWidgets.QLineEdit(self.centralwidget)
-        self.port.setGeometry(QtCore.QRect(175, 40, 151, 31))
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred,
-                                           QtWidgets.QSizePolicy.Preferred)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.port.sizePolicy().hasHeightForWidth())
-        self.port.setSizePolicy(sizePolicy)
-        self.port.setStyleSheet("font-size: 10pt;")
-        self.port.setMaxLength(5)
-        self.port.setObjectName("port")
-        self.label_ip = QtWidgets.QLabel(self.centralwidget)
-        self.label_ip.setGeometry(QtCore.QRect(21, 10, 141, 31))
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred,
-                                           QtWidgets.QSizePolicy.Preferred)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(
-            self.label_ip.sizePolicy().hasHeightForWidth())
-        self.label_ip.setSizePolicy(sizePolicy)
-        self.label_ip.setBaseSize(QtCore.QSize(0, 0))
-        self.label_ip.setStyleSheet("font-size: 12pt;")
-        self.label_ip.setScaledContents(False)
-        self.label_ip.setObjectName("label_ip")
-        self.button_apply = QtWidgets.QPushButton(self.centralwidget)
-        self.button_apply.setGeometry(QtCore.QRect(176, 341, 151, 51))
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred,
-                                           QtWidgets.QSizePolicy.Preferred)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(
-            self.button_apply.sizePolicy().hasHeightForWidth())
-        self.button_apply.setSizePolicy(sizePolicy)
-        self.button_apply.setStyleSheet("font-size: 12pt;")
-        self.button_apply.setObjectName("button_apply")
-        self.label_port = QtWidgets.QLabel(self.centralwidget)
-        self.label_port.setGeometry(QtCore.QRect(178, 10, 91, 31))
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred,
-                                           QtWidgets.QSizePolicy.Preferred)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(
-            self.label_port.sizePolicy().hasHeightForWidth())
-        self.label_port.setSizePolicy(sizePolicy)
-        self.label_port.setBaseSize(QtCore.QSize(0, 0))
-        self.label_port.setStyleSheet("font-size: 12pt;")
-        self.label_port.setScaledContents(False)
-        self.label_port.setObjectName("label_port")
-        self.copy_join_keys = QtWidgets.QLineEdit(self.centralwidget)
-        self.copy_join_keys.setGeometry(QtCore.QRect(17, 200, 151, 31))
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred,
-                                           QtWidgets.QSizePolicy.Preferred)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(
-            self.copy_join_keys.sizePolicy().hasHeightForWidth())
-        self.copy_join_keys.setSizePolicy(sizePolicy)
-        self.copy_join_keys.setStyleSheet("font-size: 10pt;")
-        self.copy_join_keys.setMaxLength(30)
-        self.copy_join_keys.setObjectName("copy_join_keys")
-        self.label_copy_join_keys = QtWidgets.QLabel(self.centralwidget)
-        self.label_copy_join_keys.setGeometry(QtCore.QRect(22, 170, 141, 31))
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred,
-                                           QtWidgets.QSizePolicy.Preferred)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(
-            self.label_copy_join_keys.sizePolicy().hasHeightForWidth())
-        self.label_copy_join_keys.setSizePolicy(sizePolicy)
-        self.label_copy_join_keys.setBaseSize(QtCore.QSize(0, 0))
-        self.label_copy_join_keys.setMouseTracking(True)
-        self.label_copy_join_keys.setStyleSheet("font-size: 12pt;")
-        self.label_copy_join_keys.setScaledContents(False)
-        self.label_copy_join_keys.setObjectName("label_copy_join_keys")
-        self.copy_share_keys = QtWidgets.QLineEdit(self.centralwidget)
-        self.copy_share_keys.setGeometry(QtCore.QRect(176, 200, 151, 31))
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred,
-                                           QtWidgets.QSizePolicy.Preferred)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(
-            self.copy_share_keys.sizePolicy().hasHeightForWidth())
-        self.copy_share_keys.setSizePolicy(sizePolicy)
-        self.copy_share_keys.setStyleSheet("font-size: 10pt;")
-        self.copy_share_keys.setMaxLength(30)
-        self.copy_share_keys.setObjectName("copy_share_keys")
-        self.label_copy_share_keys = QtWidgets.QLabel(self.centralwidget)
-        self.label_copy_share_keys.setGeometry(QtCore.QRect(182, 171, 131, 31))
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred,
-                                           QtWidgets.QSizePolicy.Preferred)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(
-            self.label_copy_share_keys.sizePolicy().hasHeightForWidth())
-        self.label_copy_share_keys.setSizePolicy(sizePolicy)
-        self.label_copy_share_keys.setBaseSize(QtCore.QSize(0, 0))
-        self.label_copy_share_keys.setStyleSheet("font-size: 12pt;")
-        self.label_copy_share_keys.setScaledContents(False)
-        self.label_copy_share_keys.setObjectName("label_copy_share_keys")
-        self.label_error = QtWidgets.QLabel(self.centralwidget)
-        self.label_error.setGeometry(QtCore.QRect(20, 310, 461, 31))
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred,
-                                           QtWidgets.QSizePolicy.Preferred)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(
-            self.label_error.sizePolicy().hasHeightForWidth())
-        self.label_error.setSizePolicy(sizePolicy)
-        self.label_error.setBaseSize(QtCore.QSize(0, 0))
-        self.label_error.setStyleSheet("font-size: 12pt;\n"
-                                       "color: #FF0000;\n"
-                                       "text-align: center;")
-        self.label_error.setScaledContents(False)
-        self.label_error.setAlignment(QtCore.Qt.AlignCenter)
-        self.label_error.setObjectName("label_error")
-        self.client_name = QtWidgets.QLineEdit(self.centralwidget)
-        self.client_name.setGeometry(QtCore.QRect(334, 40, 151, 31))
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred,
-                                           QtWidgets.QSizePolicy.Preferred)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(
-            self.client_name.sizePolicy().hasHeightForWidth())
-        self.client_name.setSizePolicy(sizePolicy)
-        self.client_name.setStyleSheet("font-size: 10pt;")
-        self.client_name.setText("")
-        self.client_name.setMaxLength(30)
-        self.client_name.setClearButtonEnabled(False)
-        self.client_name.setObjectName("client_name")
-        self.label_client_name = QtWidgets.QLabel(self.centralwidget)
-        self.label_client_name.setGeometry(QtCore.QRect(340, 11, 141, 31))
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred,
-                                           QtWidgets.QSizePolicy.Preferred)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(
-            self.label_client_name.sizePolicy().hasHeightForWidth())
-        self.label_client_name.setSizePolicy(sizePolicy)
-        self.label_client_name.setBaseSize(QtCore.QSize(0, 0))
-        self.label_client_name.setStyleSheet("font-size: 12pt;")
-        self.label_client_name.setScaledContents(False)
-        self.label_client_name.setObjectName("label_client_name")
-        self.label_client_name_for_sync = QtWidgets.QLabel(self.centralwidget)
-        self.label_client_name_for_sync.setGeometry(
-            QtCore.QRect(23, 90, 141, 31))
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred,
-                                           QtWidgets.QSizePolicy.Preferred)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(
-            self.label_client_name_for_sync.sizePolicy().hasHeightForWidth())
-        self.label_client_name_for_sync.setSizePolicy(sizePolicy)
-        self.label_client_name_for_sync.setBaseSize(QtCore.QSize(0, 0))
-        self.label_client_name_for_sync.setStyleSheet("font-size: 12pt;")
-        self.label_client_name_for_sync.setScaledContents(False)
-        self.label_client_name_for_sync.setObjectName(
-            "label_client_name_for_sync")
-        self.client_name_for_sync = QtWidgets.QLineEdit(self.centralwidget)
-        self.client_name_for_sync.setGeometry(QtCore.QRect(17, 120, 151, 31))
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred,
-                                           QtWidgets.QSizePolicy.Preferred)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(
-            self.client_name_for_sync.sizePolicy().hasHeightForWidth())
-        self.client_name_for_sync.setSizePolicy(sizePolicy)
-        self.client_name_for_sync.setStyleSheet("font-size: 10pt;")
-        self.client_name_for_sync.setText("")
-        self.client_name_for_sync.setMaxLength(30)
-        self.client_name_for_sync.setClearButtonEnabled(False)
-        self.client_name_for_sync.setObjectName("client_name_for_sync")
-        self.connector_enter_keys = QtWidgets.QLineEdit(self.centralwidget)
-        self.connector_enter_keys.setGeometry(QtCore.QRect(18, 270, 151, 31))
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred,
-                                           QtWidgets.QSizePolicy.Preferred)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(
-            self.connector_enter_keys.sizePolicy().hasHeightForWidth())
-        self.connector_enter_keys.setSizePolicy(sizePolicy)
-        self.connector_enter_keys.setStyleSheet("font-size: 10pt;")
-        self.connector_enter_keys.setMaxLength(30)
-        self.connector_enter_keys.setObjectName("connector_enter_keys")
-        self.label_connector_enter_keys = QtWidgets.QLabel(self.centralwidget)
-        self.label_connector_enter_keys.setGeometry(
-            QtCore.QRect(24, 240, 141, 31))
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred,
-                                           QtWidgets.QSizePolicy.Preferred)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(
-            self.label_connector_enter_keys.sizePolicy().hasHeightForWidth())
-        self.label_connector_enter_keys.setSizePolicy(sizePolicy)
-        self.label_connector_enter_keys.setBaseSize(QtCore.QSize(0, 0))
-        self.label_connector_enter_keys.setStyleSheet("font-size: 12pt;")
-        self.label_connector_enter_keys.setScaledContents(False)
-        self.label_connector_enter_keys.setObjectName(
-            "label_connector_enter_keys")
-        self.label_connector_space_bar_keys = QtWidgets.QLabel(
-            self.centralwidget)
-        self.label_connector_space_bar_keys.setGeometry(
-            QtCore.QRect(181, 240, 141, 31))
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred,
-                                           QtWidgets.QSizePolicy.Preferred)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(
-            self.label_connector_space_bar_keys.sizePolicy().hasHeightForWidth())
-        self.label_connector_space_bar_keys.setSizePolicy(sizePolicy)
-        self.label_connector_space_bar_keys.setBaseSize(QtCore.QSize(0, 0))
-        self.label_connector_space_bar_keys.setStyleSheet("font-size: 12pt;")
-        self.label_connector_space_bar_keys.setScaledContents(False)
-        self.label_connector_space_bar_keys.setObjectName(
-            "label_connector_space_bar_keys")
-        self.connector_space_bar_keys = QtWidgets.QLineEdit(self.centralwidget)
-        self.connector_space_bar_keys.setGeometry(
-            QtCore.QRect(176, 270, 151, 31))
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred,
-                                           QtWidgets.QSizePolicy.Preferred)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(
-            self.connector_space_bar_keys.sizePolicy().hasHeightForWidth())
-        self.connector_space_bar_keys.setSizePolicy(sizePolicy)
-        self.connector_space_bar_keys.setStyleSheet("font-size: 10pt;")
-        self.connector_space_bar_keys.setMaxLength(30)
-        self.connector_space_bar_keys.setObjectName("connector_space_bar_keys")
-        self.connector_none_keys = QtWidgets.QLineEdit(self.centralwidget)
-        self.connector_none_keys.setGeometry(QtCore.QRect(334, 270, 151, 31))
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred,
-                                           QtWidgets.QSizePolicy.Preferred)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(
-            self.connector_none_keys.sizePolicy().hasHeightForWidth())
-        self.connector_none_keys.setSizePolicy(sizePolicy)
-        self.connector_none_keys.setStyleSheet("font-size: 10pt;")
-        self.connector_none_keys.setMaxLength(30)
-        self.connector_none_keys.setObjectName("connector_none_keys")
-        self.label_connector_none = QtWidgets.QLabel(self.centralwidget)
-        self.label_connector_none.setGeometry(QtCore.QRect(340, 240, 141, 31))
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred,
-                                           QtWidgets.QSizePolicy.Preferred)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(
-            self.label_connector_none.sizePolicy().hasHeightForWidth())
-        self.label_connector_none.setSizePolicy(sizePolicy)
-        self.label_connector_none.setBaseSize(QtCore.QSize(0, 0))
-        self.label_connector_none.setStyleSheet("font-size: 12pt;")
-        self.label_connector_none.setScaledContents(False)
-        self.label_connector_none.setObjectName("label_connector_none")
-        self.groupConnect = QtWidgets.QGroupBox(self.centralwidget)
-        self.groupConnect.setGeometry(QtCore.QRect(10, 10, 481, 71))
-        self.groupConnect.setTitle("")
-        self.groupConnect.setObjectName("groupConnect")
-        self.label_client_name_for_share = QtWidgets.QLabel(self.centralwidget)
-        self.label_client_name_for_share.setGeometry(
-            QtCore.QRect(181, 90, 141, 31))
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred,
-                                           QtWidgets.QSizePolicy.Preferred)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(
-            self.label_client_name_for_share.sizePolicy().hasHeightForWidth())
-        self.label_client_name_for_share.setSizePolicy(sizePolicy)
-        self.label_client_name_for_share.setBaseSize(QtCore.QSize(0, 0))
-        self.label_client_name_for_share.setStyleSheet("font-size: 12pt;")
-        self.label_client_name_for_share.setScaledContents(False)
-        self.label_client_name_for_share.setObjectName(
-            "label_client_name_for_share")
-        self.client_name_for_share = QtWidgets.QLineEdit(self.centralwidget)
-        self.client_name_for_share.setGeometry(QtCore.QRect(175, 120, 151, 31))
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred,
-                                           QtWidgets.QSizePolicy.Preferred)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(
-            self.client_name_for_share.sizePolicy().hasHeightForWidth())
-        self.client_name_for_share.setSizePolicy(sizePolicy)
-        self.client_name_for_share.setStyleSheet("font-size: 10pt;")
-        self.client_name_for_share.setText("")
-        self.client_name_for_share.setMaxLength(30)
-        self.client_name_for_share.setClearButtonEnabled(False)
-        self.client_name_for_share.setObjectName("client_name_for_share")
-        self.groupClients = QtWidgets.QGroupBox(self.centralwidget)
-        self.groupClients.setGeometry(QtCore.QRect(10, 90, 481, 71))
-        self.groupClients.setTitle("")
-        self.groupClients.setObjectName("groupClients")
-        self.groupHotkeys = QtWidgets.QGroupBox(self.centralwidget)
-        self.groupHotkeys.setGeometry(QtCore.QRect(10, 170, 481, 141))
-        self.groupHotkeys.setTitle("")
-        self.groupHotkeys.setObjectName("groupHotkeys")
-        self.groupClients.raise_()
-        self.groupHotkeys.raise_()
-        self.groupConnect.raise_()
-        self.ip.raise_()
-        self.port.raise_()
-        self.label_ip.raise_()
-        self.button_apply.raise_()
-        self.label_port.raise_()
-        self.copy_join_keys.raise_()
-        self.label_copy_join_keys.raise_()
-        self.copy_share_keys.raise_()
-        self.label_copy_share_keys.raise_()
-        self.label_error.raise_()
-        self.client_name.raise_()
-        self.label_client_name.raise_()
-        self.label_client_name_for_sync.raise_()
-        self.client_name_for_sync.raise_()
-        self.connector_enter_keys.raise_()
-        self.label_connector_enter_keys.raise_()
-        self.label_connector_space_bar_keys.raise_()
-        self.connector_space_bar_keys.raise_()
-        self.connector_none_keys.raise_()
-        self.label_connector_none.raise_()
-        self.label_client_name_for_share.raise_()
-        self.client_name_for_share.raise_()
-        MainWindow.setCentralWidget(self.centralwidget)
+class DialogWindow(QtWidgets.QWidget):
+    def __init__(self, callback_create_image_file):
+        super().__init__()
+        self.callback_create_image_file = callback_create_image_file
 
-        self.retranslateUi(MainWindow)
-        QtCore.QMetaObject.connectSlotsByName(MainWindow)
+    def directory_selection(self):
+        default_path = servise.get_desktop_path()
+        dialog = QFileDialog()
+        dialog.setWindowTitle('Выберите директорию')
+        dialog.setAcceptMode(QFileDialog.AcceptSave)
+        dialog.setDefaultSuffix('png')
+        # default_filename = 'Новый_файл.png'
+        # file_dialog.selectFile(default_filename)
+        file_path, _ = dialog.getSaveFileName(
+            directory=default_path,
+            filter='Image Files (*.png *.jpg *.bmp)',
+            options=QFileDialog.DontUseNativeDialog,
+        )
+        directory = os.path.dirname(file_path)
+        filename = os.path.basename(file_path)
+        #
+        self.callback_create_image_file(directory, filename)
 
-    def retranslateUi(self, MainWindow):
-        _translate = QtCore.QCoreApplication.translate
-        MainWindow.setWindowTitle(_translate("MainWindow", "Share Сlipboard"))
-        self.ip.setPlaceholderText(_translate("MainWindow", " 127.0.0.1 *"))
-        self.port.setPlaceholderText(_translate("MainWindow", " 7000 *"))
-        self.label_ip.setText(_translate(
-            "MainWindow",
-            "<html><head/><body><p>Адрес сервера</p></body></html>"))
-        self.button_apply.setText(_translate("MainWindow", "Применить"))
-        self.button_apply.setShortcut(_translate("MainWindow", "1"))
-        self.label_port.setText(_translate(
-            "MainWindow", "<html><head/><body><p>Порт</p></body></html>"))
-        self.copy_join_keys.setPlaceholderText(
-            _translate("MainWindow", " <ctrl>+<shift>+c"))
-        self.label_copy_join_keys.setText(_translate(
-            "MainWindow",
-            "<html><head/><body><p><span style=\" font-size:12pt;\">Копирование +</span></p></body></html>"))
-        self.copy_share_keys.setPlaceholderText(
-            _translate("MainWindow", " <ctrl>+<alt>+p"))
-        self.label_copy_share_keys.setText(_translate(
-            "MainWindow",
-            "<html><head/><body><p><span style=\" font-size:12pt;\">Поделиться</span></p></body></html>"))
-        self.label_error.setText(
-            _translate("MainWindow", "<html><head/><body><p/></body></html>"))
-        self.client_name.setPlaceholderText(
-            _translate("MainWindow", " Ваше имя *"))
-        self.label_client_name.setText(_translate(
-            "MainWindow",
-            "<html><head/><body><p><span style=\" font-size:12pt;\">Имя</span></p></body></html>"))
-        self.label_client_name_for_sync.setText(_translate(
-            "MainWindow",
-            "<html><head/><body><p>Синхронизация</p></body></html>"))
-        self.client_name_for_sync.setPlaceholderText(
-            _translate("MainWindow", "Имя клиента, ..."))
-        self.connector_enter_keys.setPlaceholderText(
-            _translate("MainWindow", " <ctrl>+1"))
-        self.label_connector_enter_keys.setText(_translate(
-            "MainWindow",
-            "<html><head/><body><p>Новая строка</p></body></html>"))
-        self.label_connector_space_bar_keys.setText(_translate(
-            "MainWindow", "<html><head/><body><p>Пробел</p></body></html>"))
-        self.connector_space_bar_keys.setPlaceholderText(
-            _translate("MainWindow", " <ctrl>+2"))
-        self.connector_none_keys.setPlaceholderText(
-            _translate("MainWindow", " <ctrl>+3"))
-        self.label_connector_none.setText(_translate(
-            "MainWindow",
-            "<html><head/><body><p><span style=\" font-size:12pt;\">Слитно</span></p></body></html>"))
-        self.label_client_name_for_share.setText(_translate(
-            "MainWindow",
-            "<html><head/><body><p><span style=\" font-size:12pt;\">Делиться c:</span></p></body></html>"))
-        self.client_name_for_share.setPlaceholderText(
-            _translate("MainWindow", "Имя клиента, ..."))
+    def closeEvent(self, event):
+        """ Перехват события закрытия окна """
+        # event.accept()
+        # QtWidgets.QApplication.quit()
+        event.ignore()
+        self.hide()
 
 
-# f55a44 red
-# 499c54 green
-# 287bde blue
-# cbcdc1 wite
-# ffc66d yellow
+class ImageWindow(QtWidgets.QWidget):
+    def __init__(self,
+                 callback_create_image_file,
+                 ):
+        super().__init__()
+        self.callback_create_image_file = callback_create_image_file
+        #
+        self.setWindowTitle("Изображение в буфере")
+        # ----------------------------------------------------------------------
+        self.dialog_window = DialogWindow(self.callback_create_image_file)
+        # ----------------------------------------------------------------------
+        # Максимальный размер окна в соответствии с размерами экрана
+        desktop = QtWidgets.QApplication.desktop()
+        width = desktop.width()
+        height = desktop.height()
+        self.setMaximumSize(width, height)
+        self.setMinimumSize(150, 150)
+        #
+        self.image_data = None
+
+        # Создаем QLabel для отображения изображения
+        self.image_label = QtWidgets.QLabel(self)
+        self.image_label.setAlignment(Qt.AlignCenter)
+        # False не растягиваем изображение вместе с окном - (по умолчанию)
+        self.image_label.setScaledContents(False)
+        # Обработчик событий колеса мыши
+        self.image_label.setMouseTracking(True)
+        # Обработчики событий перетаскивания
+        self.image_label.setAcceptDrops(True)
+        #
+        self.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.customContextMenuRequested.connect(self.show_context_menu)
+
+        # Размещаем QLabel внутри QVBoxLayout
+        vbox = QtWidgets.QVBoxLayout(self)
+        vbox.addWidget(self.image_label)
+        self.setLayout(vbox)
+
+    def show_context_menu(self, pos):
+        menu = QMenu(self)
+        save_on_desktop_action = QAction('Сохранить на рабочий стол', self)
+        save_action = QAction('Сохранить как', self)
+        save_action.triggered.connect(
+            lambda: self.dialog_window.directory_selection()
+        )
+        save_on_desktop_action.triggered.connect(
+            lambda: self.callback_create_image_file(
+                directory=servise.get_desktop_path()
+            ))
+        menu.addAction(save_action)
+        menu.addAction(save_on_desktop_action)
+        #
+        menu.exec_(self.mapToGlobal(pos))
+
+    # --------------------------------------------------------------------------
+
+    def load_image(self, image_data):
+        pixmap = QtGui.QPixmap.fromImage(image_data)
+        # Отображаем QPixmap внутри QLabel
+        self.image_label.setPixmap(pixmap)
+
+    def show_window(self, image_data):
+        # Загружаем изображение из бинарных данных и отображаем его
+        self.load_image(image_data)
+        #
+        _window_placement(self)
+        self.show()
+
+    # ------- События ----------------------------------------------------------
+
+    def wheelEvent(self, event):
+        # Получаем текущий масштаб изображения
+        current_scale = self.image_label.pixmap().size().width() / self.image_label.width()
+
+        # Вычисляем масштаб в зависимости от направления прокрутки колеса мыши
+        if event.angleDelta().y() > 0:
+            # Прокрутка вверх - увеличиваем масштаб
+            new_scale = current_scale * 1.3
+        else:
+            # Прокрутка вниз - уменьшаем масштаб
+            new_scale = current_scale / 1.3
+
+        # Масштабируем изображение
+        new_size = self.image_label.pixmap().size() / current_scale * new_scale
+        new_pixmap = self.image_label.pixmap().scaled(
+            new_size, Qt.KeepAspectRatio
+        )
+        self.image_label.setPixmap(new_pixmap)
+
+    def closeEvent(self, event):
+        """ Перехват события закрытия окна """
+        event.ignore()
+        self.hide()
 
 
 class LogWindow(QtWidgets.QTextEdit):
@@ -446,6 +162,11 @@ class LogWindow(QtWidgets.QTextEdit):
 
     @QtCore.pyqtSlot(str, int)
     def log(self, message, level):
+        # f55a44 red
+        # 499c54 green
+        # 287bde blue
+        # cbcdc1 white
+        # ffc66d yellow
         color = '#cbcdc1'
         if level == logging.DEBUG:
             color = '#ffc66d'  # yellow
@@ -485,6 +206,7 @@ class ShowUiMainWindow(QtWidgets.QMainWindow):
                  callback_settings_update,
                  callback_apply_received_share_data,
                  callback_create_image_file,
+                 callback_show_image,
                  # callback_is_need_reconnect,
                  ):
         super(ShowUiMainWindow, self).__init__()
@@ -492,12 +214,17 @@ class ShowUiMainWindow(QtWidgets.QMainWindow):
         assert callable(callback_apply_received_share_data)
         # assert callable(callback_is_need_reconnect)
         self.callback_settings_update = callback_settings_update
-        self.callback_apply_received_data = callback_apply_received_share_data
+        self.callback_apply_received_share_data = callback_apply_received_share_data
         self.callback_create_image_file = callback_create_image_file
+        self.callback_show_image = callback_show_image
         # self.callback_is_need_reconnect = callback_is_need_reconnect
         # ----------------------------------------------------------------------
-        self.ui = UiMainWindow()
+        self.ui = gui_qtdesigner.UiMainWindow()
         self.ui.setupUi(self)
+        # ----------------------------------------------------------------------
+        self.dialog_window = DialogWindow(self.callback_create_image_file)
+        # ----------------------------------------------------------------------
+        self.image_window = ImageWindow(self.callback_create_image_file)
         # ----------------------------------------------------------------------
         self.log_window = LogWindow()
         # ----------------------------------------------------------------------
@@ -509,27 +236,37 @@ class ShowUiMainWindow(QtWidgets.QMainWindow):
         # self.tray_icon.setIcon(
         #     self.style().standardIcon(QStyle.SP_ComputerIcon))
         self.show_icon()
+        self.tray_icon.setContextMenu(self.show_context_menu())
+        self.tray_icon.activated.connect(self.on_tray_icon_activated)
+        self.tray_icon.show()
+        # ----------------------------------------------------------------------
+        self.old_settings = None
+        # ----------------------------------------------------------------------
 
+    def show_context_menu(self):
         apply_data_action = QAction('Принять данные', self)
-        create_file_img_action = QAction('Создать файл изображения', self)
-        directory_action = QAction('Сохранить как', self)
+        save_on_desktop_action = QAction('Сохранить на рабочий стол', self)
+        # save_action = QAction('Сохранить как', self)
         # is_need_reconnect_action = QAction("Переподключить", self)
-        show_action = QAction('Показать', self)
+        show_image_action = QAction('Показать изображение', self)
         log_action = QAction('Показать лог', self)
         hide_action = QAction('Свернуть в трей', self)
         quit_action = QAction('Закрыть', self)
         #
         apply_data_action.triggered.connect(
-            lambda: self.callback_apply_received_share_data())
-        create_file_img_action.triggered.connect(
-            lambda: self.callback_create_image_file())
-        directory_action.triggered.connect(
-            self.select_a_directory
+            lambda: self.callback_apply_received_share_data()
         )
+        save_on_desktop_action.triggered.connect(
+            lambda: self.callback_create_image_file(
+                directory=servise.get_desktop_path()
+            ))
+        # save_action.triggered.connect(
+        #     lambda: self.dialog_window.directory_selection()
+        # )
         # is_need_reconnect_action.triggered.connect(
         #     lambda: self.callback_is_need_reconnect.set())
-        show_action.triggered.connect(
-            self.show
+        show_image_action.triggered.connect(
+            lambda: self.callback_show_image()
         )
         log_action.triggered.connect(
             lambda: self.log_window.show()
@@ -544,43 +281,16 @@ class ShowUiMainWindow(QtWidgets.QMainWindow):
         tray_menu = QMenu()
         tray_menu.addAction(apply_data_action)
         tray_menu.addSeparator()
-        tray_menu.addAction(create_file_img_action)
-        tray_menu.addAction(directory_action)
+        tray_menu.addAction(show_image_action)
+        tray_menu.addAction(save_on_desktop_action)
+        # tray_menu.addAction(save_action)
         tray_menu.addSeparator()
         # tray_menu.addAction(is_need_reconnect_action)
-        tray_menu.addAction(show_action)
         tray_menu.addAction(log_action)
+        tray_menu.addSeparator()
         tray_menu.addAction(hide_action)
         tray_menu.addAction(quit_action)
-        #
-        self.tray_icon.setContextMenu(tray_menu)
-        self.tray_icon.activated.connect(self.on_tray_icon_activated)
-        self.tray_icon.show()
-        # ----------------------------------------------------------------------
-        self.old_settings = None
-        # ----------------------------------------------------------------------
-
-    @staticmethod
-    def _get_desktop_path():
-        """ Получение пути рабочего стола """
-        if os.name == 'nt':  # Windows
-            desktop_path = os.path.join(os.environ['USERPROFILE'], 'Desktop')
-            return desktop_path
-        if os.name == 'posix':  # Unix
-            desktop_path = os.path.join(os.path.expanduser('~'), 'Desktop')
-            return desktop_path
-        #
-
-    def directory_selection_window(self):
-        """ Окно выбора дериктории """
-        default_path = self._get_desktop_path()
-        file_dialog = QFileDialog()
-        file_dialog.setOption(QFileDialog.ShowDirsOnly)
-        directory = file_dialog.getExistingDirectory(
-            None, 'Выберите директорию', default_path
-        )
-        print(directory)  # Выводим путь к выбранной директории
-        #
+        return tray_menu
 
     def on_tray_icon_activated(self, reason):
         """ Показать окно двойным кликом по иконке в трее """
@@ -617,18 +327,6 @@ class ShowUiMainWindow(QtWidgets.QMainWindow):
 
     # --------------------------------------------------------------------------
 
-    def window_placement(self):
-        """ Место размещения окна на экране """
-        frame_gm = self.frameGeometry()
-        screen = QtWidgets.QApplication.desktop().screenNumber(
-            QtWidgets.QApplication.desktop().cursor().pos())
-        center_point = QtWidgets.QApplication.desktop().screenGeometry(
-            screen).center()
-        frame_gm.moveCenter(center_point)
-        self.move(frame_gm.topLeft())
-
-    # --------------------------------------------------------------------------
-
     @staticmethod
     def _list_to_string(value):
         return ', '.join(value)
@@ -661,7 +359,7 @@ class ShowUiMainWindow(QtWidgets.QMainWindow):
 
     def show_gui(self, settings) -> None:
         self._set_settings(settings, update=False)
-        self.window_placement()
+        _window_placement(self)
         return super(ShowUiMainWindow, self).hide()
 
     # --------------------------------------------------------------------------
@@ -673,7 +371,7 @@ class ShowUiMainWindow(QtWidgets.QMainWindow):
                 "Share Clipboard",
                 msg,
                 QSystemTrayIcon.Information,
-                1000,
+                2000,
             )
         if success:
             self.ui.label_error.setStyleSheet('color: #00CC00')  # Green

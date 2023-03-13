@@ -11,14 +11,14 @@ class EmtpyFileSettingsError(SettingsError):
     """ """
 
 
-def generate_client_id():
+def _generate_client_id():
     chars = string.ascii_lowercase + string.digits
     return ''.join(random.choice(chars) for _ in range(32))
 
 
 def get_default_app_settings():
     return AppSettings(
-        client_id=generate_client_id(),
+        client_id=_generate_client_id(),
         ip='45.141.77.236',
         port='7000',
         client_name='user' + str(random.randint(1111, 9999)),
