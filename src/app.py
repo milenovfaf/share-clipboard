@@ -335,8 +335,9 @@ class App:
         #         return
 
     def create_image_file(self, directory="images", file_name=None):
+        log.debug(f'App.create_image_file')
         if not os.path.exists(directory):
-            # os.makedirs(directory)
+            os.makedirs(directory)
             return
         #
         if not isinstance(self.received_sync_clipboard_data, bytes):

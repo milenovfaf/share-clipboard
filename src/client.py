@@ -39,9 +39,9 @@ class Client:
             #
             while self._is_listening.is_set() is True:
                 # --------------------------------------------#
-                ready_to_read, _, _ = select.select([self.sock], [], [], 60)
+                ready_to_read, _, _ = select.select([self.sock], [], [], 5)
                 if not ready_to_read:
-                    # Если ничего не приходит в течении 60 секунд
+                    # Если прошло 5 секунд без готовых для чтения данных
                     self.send_to_server({
                         'status': 'ping',
                     })
@@ -104,6 +104,7 @@ class Client:
             print('_stop_listening ', join)
             print('self.listen_thread.is_alive()', self.listen_thread.is_alive())
             self.listen_thread.join()
+            print('self.listen_thread.is_alive()', self.listen_thread.is_alive())
         #
     # --------------------------------------------------------------------------
 

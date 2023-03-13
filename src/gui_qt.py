@@ -1,4 +1,6 @@
 import os
+import sys
+
 from PyQt5 import QtCore, QtWidgets, QtGui
 from PyQt5.QtGui import QIcon, QTextCursor
 from PyQt5.QtWidgets import QSystemTrayIcon, QMenu, QAction, qApp, \
@@ -300,11 +302,11 @@ class ShowUiMainWindow(QtWidgets.QMainWindow):
 
     def show_icon(self, color='blue'):
         """ Отображение иконки в трее """
-        icon = 'icon_blue.png'
+        icon = os.path.join(servise.get_base_path(), "icons", "icon_blue.ico")
         if color is 'red':
-            icon = 'icon_red.png'
+            icon = os.path.join(servise.get_base_path(), 'icons', 'icon_red.ico')
         if color is 'green':
-            icon = 'icon_green.png'
+            icon = os.path.join(servise.get_base_path(), 'icons', 'icon_green.ico')
         #
         self.tray_icon.setIcon(QIcon(icon))
         #
@@ -313,17 +315,6 @@ class ShowUiMainWindow(QtWidgets.QMainWindow):
         """ Перехват события закрытия окна """
         event.ignore()
         self.hide()
-
-    # def changeEvent(self, event):
-    #     """ Перехват события сворачивания окна """
-    #     if self.isMinimized():
-    #         self.hide() # отправить в трей
-    #         self.tray_icon.showMessage(
-    #             "Уведомление",
-    #             "Приложение свернулось в трей",
-    #             QSystemTrayIcon.Information,
-    #             1000
-    #         )
 
     # --------------------------------------------------------------------------
 

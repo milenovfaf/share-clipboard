@@ -1,4 +1,5 @@
 import os
+import sys
 from functools import wraps
 from pathlib import Path
 from contextlib import contextmanager
@@ -8,6 +9,33 @@ import app_settings
 import logging
 
 log = logging.getLogger(__name__)
+
+# ------------------------------------------------------------------------------
+
+
+def get_base_path():
+    if getattr(sys, 'frozen', False):
+        # Если приложение запущено в режиме "упакованном" с помощью PyInstaller
+        base_path = sys._MEIPASS
+    else:
+        # Если приложение запущено в режиме "обычном" (не упакованном)
+        base_path = os.path.abspath(".")
+    return base_path
+
+# ------------------------------------------------------------------------------
+
+
+def get_desktop_path():
+    """ Получение пути рабочего стола """
+    if os.name == 'nt':  # Windows
+        desktop_path = os.path.join(os.environ['USERPROFILE'], 'Desktop')
+        return desktop_path
+    if os.name == 'posix':  # Unix
+        desktop_path = os.path.join(os.path.expanduser('~'), 'Desktop')
+        return desktop_path
+    #
+
+# ------------------------------------------------------------------------------
 
 
 @contextmanager
@@ -41,23 +69,7 @@ def callback_error_alert(fn):
             print(e)
             raise
         #
-
     return wrapper
-
-
-# ------------------------------------------------------------------------------
-
-
-def get_desktop_path():
-    """ Получение пути рабочего стола """
-    if os.name == 'nt':  # Windows
-        desktop_path = os.path.join(os.environ['USERPROFILE'], 'Desktop')
-        return desktop_path
-    if os.name == 'posix':  # Unix
-        desktop_path = os.path.join(os.path.expanduser('~'), 'Desktop')
-        return desktop_path
-    #
-
 
 # ------------------------------------------------------------------------------
 

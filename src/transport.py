@@ -2,6 +2,7 @@ from socket import *
 import struct
 import json
 import logging
+
 log = logging.getLogger(__name__)
 
 
@@ -17,13 +18,15 @@ class TransportProtocol:
 
     def sender(self, text):
         self._msg_counter = self._msg_counter + 1
-        log.debug(f'{self._msg_counter} -- SENDER -- {text}')
+        if '"status": "ping"' not in text:
+            log.debug(f'{self._msg_counter} -- SENDER -- {text}')
         text = bytes(text, 'utf-8')
         # Отправляем пакет 4 байта, хранящие длинну сообщения + само сообщение
         self.sock.sendall(
             # https://tirinox.ru/python-struct/
             struct.pack('>I', len(text)) + text
         )
+
     #
 
     # Вспомогательная функция
@@ -41,6 +44,7 @@ class TransportProtocol:
         #
         # log.debug(f'{self._msg_counter} - RECV -{n} bytes == {received_data}')
         return received_data
+
     #
 
     # Функция чтения принятых данных
@@ -55,7 +59,10 @@ class TransportProtocol:
         result = self._recv_packets(payload_len)
 
         result = result.decode()
-        log.debug(f'{self._msg_counter} -- RECV -- {payload_len} bytes == {result}')
+
+        if '"status": "pong"' not in result:
+            log.debug(
+                f'{self._msg_counter} -- RECV -- {payload_len} bytes == {result}')
         return result
     #
 
