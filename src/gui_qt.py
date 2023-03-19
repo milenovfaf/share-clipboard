@@ -9,7 +9,7 @@ from PyQt5.QtCore import Qt
 
 import app_settings
 import gui_qtdesigner
-import servise
+import service
 
 import logging
 log = logging.getLogger(__name__)
@@ -26,130 +26,35 @@ def _window_placement(window):
     window.move(frame_gm.topLeft())
 
 
-class DialogWindow(QtWidgets.QWidget):
-    def __init__(self, callback_create_image_file):
-        super().__init__()
-        self.callback_create_image_file = callback_create_image_file
-
-    def directory_selection(self):
-        default_path = servise.get_desktop_path()
-        dialog = QFileDialog()
-        dialog.setWindowTitle('Выберите директорию')
-        dialog.setAcceptMode(QFileDialog.AcceptSave)
-        dialog.setDefaultSuffix('png')
-        # default_filename = 'Новый_файл.png'
-        # file_dialog.selectFile(default_filename)
-        file_path, _ = dialog.getSaveFileName(
-            directory=default_path,
-            filter='Image Files (*.png *.jpg *.bmp)',
-            options=QFileDialog.DontUseNativeDialog,
-        )
-        directory = os.path.dirname(file_path)
-        filename = os.path.basename(file_path)
-        #
-        self.callback_create_image_file(directory, filename)
-
-    def closeEvent(self, event):
-        """ Перехват события закрытия окна """
-        # event.accept()
-        # QtWidgets.QApplication.quit()
-        event.ignore()
-        self.hide()
-
-
-class ImageWindow(QtWidgets.QWidget):
-    def __init__(self,
-                 callback_create_image_file,
-                 ):
-        super().__init__()
-        self.callback_create_image_file = callback_create_image_file
-        #
-        self.setWindowTitle("Изображение в буфере")
-        # ----------------------------------------------------------------------
-        self.dialog_window = DialogWindow(self.callback_create_image_file)
-        # ----------------------------------------------------------------------
-        # Максимальный размер окна в соответствии с размерами экрана
-        desktop = QtWidgets.QApplication.desktop()
-        width = desktop.width()
-        height = desktop.height()
-        self.setMaximumSize(width, height)
-        self.setMinimumSize(150, 150)
-        #
-        self.image_data = None
-
-        # Создаем QLabel для отображения изображения
-        self.image_label = QtWidgets.QLabel(self)
-        self.image_label.setAlignment(Qt.AlignCenter)
-        # False не растягиваем изображение вместе с окном - (по умолчанию)
-        self.image_label.setScaledContents(False)
-        # Обработчик событий колеса мыши
-        self.image_label.setMouseTracking(True)
-        # Обработчики событий перетаскивания
-        self.image_label.setAcceptDrops(True)
-        #
-        self.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.customContextMenuRequested.connect(self.show_context_menu)
-
-        # Размещаем QLabel внутри QVBoxLayout
-        vbox = QtWidgets.QVBoxLayout(self)
-        vbox.addWidget(self.image_label)
-        self.setLayout(vbox)
-
-    def show_context_menu(self, pos):
-        menu = QMenu(self)
-        save_on_desktop_action = QAction('Сохранить на рабочий стол', self)
-        save_action = QAction('Сохранить как', self)
-        save_action.triggered.connect(
-            lambda: self.dialog_window.directory_selection()
-        )
-        save_on_desktop_action.triggered.connect(
-            lambda: self.callback_create_image_file(
-                directory=servise.get_desktop_path()
-            ))
-        menu.addAction(save_action)
-        menu.addAction(save_on_desktop_action)
-        #
-        menu.exec_(self.mapToGlobal(pos))
-
-    # --------------------------------------------------------------------------
-
-    def load_image(self, image_data):
-        pixmap = QtGui.QPixmap.fromImage(image_data)
-        # Отображаем QPixmap внутри QLabel
-        self.image_label.setPixmap(pixmap)
-
-    def show_window(self, image_data):
-        # Загружаем изображение из бинарных данных и отображаем его
-        self.load_image(image_data)
-        #
-        _window_placement(self)
-        self.show()
-
-    # ------- События ----------------------------------------------------------
-
-    def wheelEvent(self, event):
-        # Получаем текущий масштаб изображения
-        current_scale = self.image_label.pixmap().size().width() / self.image_label.width()
-
-        # Вычисляем масштаб в зависимости от направления прокрутки колеса мыши
-        if event.angleDelta().y() > 0:
-            # Прокрутка вверх - увеличиваем масштаб
-            new_scale = current_scale * 1.3
-        else:
-            # Прокрутка вниз - уменьшаем масштаб
-            new_scale = current_scale / 1.3
-
-        # Масштабируем изображение
-        new_size = self.image_label.pixmap().size() / current_scale * new_scale
-        new_pixmap = self.image_label.pixmap().scaled(
-            new_size, Qt.KeepAspectRatio
-        )
-        self.image_label.setPixmap(new_pixmap)
-
-    def closeEvent(self, event):
-        """ Перехват события закрытия окна """
-        event.ignore()
-        self.hide()
+# class DialogWindow(QtWidgets.QWidget):
+#     def __init__(self, callback_create_image_file):
+#         super().__init__()
+#         self.callback_create_image_file = callback_create_image_file
+#
+#     def directory_selection(self):
+#         default_path = service.get_desktop_path()
+#         dialog = QFileDialog()
+#         dialog.setWindowTitle('Выберите директорию')
+#         dialog.setAcceptMode(QFileDialog.AcceptSave)
+#         dialog.setDefaultSuffix('png')
+#         # default_filename = 'Новый_файл.png'
+#         # file_dialog.selectFile(default_filename)
+#         file_path, _ = dialog.getSaveFileName(
+#             directory=default_path,
+#             filter='Image Files (*.png *.jpg *.bmp)',
+#             options=QFileDialog.DontUseNativeDialog,
+#         )
+#         directory = os.path.dirname(file_path)
+#         filename = os.path.basename(file_path)
+#         #
+#         self.callback_create_image_file(directory, filename)
+#
+#     def closeEvent(self, event):
+#         """ Перехват события закрытия окна """
+#         # event.accept()
+#         # QtWidgets.QApplication.quit()
+#         event.ignore()
+#         self.hide()
 
 
 class LogWindow(QtWidgets.QTextEdit):
@@ -209,24 +114,24 @@ class ShowUiMainWindow(QtWidgets.QMainWindow):
                  callback_apply_received_share_data,
                  callback_create_image_file,
                  callback_show_image,
-                 # callback_is_need_reconnect,
+                 callback_is_need_reconnect,
                  ):
         super(ShowUiMainWindow, self).__init__()
         assert callable(callback_settings_update)
         assert callable(callback_apply_received_share_data)
-        # assert callable(callback_is_need_reconnect)
+        assert callable(callback_is_need_reconnect)
         self.callback_settings_update = callback_settings_update
         self.callback_apply_received_share_data = callback_apply_received_share_data
         self.callback_create_image_file = callback_create_image_file
         self.callback_show_image = callback_show_image
-        # self.callback_is_need_reconnect = callback_is_need_reconnect
+        self.callback_is_need_reconnect = callback_is_need_reconnect
         # ----------------------------------------------------------------------
         self.ui = gui_qtdesigner.UiMainWindow()
         self.ui.setupUi(self)
         # ----------------------------------------------------------------------
         self.dialog_window = DialogWindow(self.callback_create_image_file)
         # ----------------------------------------------------------------------
-        self.image_window = ImageWindow(self.callback_create_image_file)
+        # self.image_window = ImageWindow(self.callback_create_image_file)
         # ----------------------------------------------------------------------
         self.log_window = LogWindow()
         # ----------------------------------------------------------------------
@@ -249,7 +154,7 @@ class ShowUiMainWindow(QtWidgets.QMainWindow):
         apply_data_action = QAction('Принять данные', self)
         save_on_desktop_action = QAction('Сохранить на рабочий стол', self)
         # save_action = QAction('Сохранить как', self)
-        # is_need_reconnect_action = QAction("Переподключить", self)
+        is_need_reconnect_action = QAction("Переподключить", self)
         show_image_action = QAction('Показать изображение', self)
         log_action = QAction('Показать лог', self)
         hide_action = QAction('Свернуть в трей', self)
@@ -260,13 +165,14 @@ class ShowUiMainWindow(QtWidgets.QMainWindow):
         )
         save_on_desktop_action.triggered.connect(
             lambda: self.callback_create_image_file(
-                directory=servise.get_desktop_path()
+                directory=service.get_desktop_path()
             ))
         # save_action.triggered.connect(
         #     lambda: self.dialog_window.directory_selection()
         # )
-        # is_need_reconnect_action.triggered.connect(
-        #     lambda: self.callback_is_need_reconnect.set())
+        is_need_reconnect_action.triggered.connect(
+            lambda: self.callback_is_need_reconnect()
+        )
         show_image_action.triggered.connect(
             lambda: self.callback_show_image()
         )
@@ -287,26 +193,30 @@ class ShowUiMainWindow(QtWidgets.QMainWindow):
         tray_menu.addAction(save_on_desktop_action)
         # tray_menu.addAction(save_action)
         tray_menu.addSeparator()
-        # tray_menu.addAction(is_need_reconnect_action)
         tray_menu.addAction(log_action)
         tray_menu.addSeparator()
+        tray_menu.addAction(is_need_reconnect_action)
         tray_menu.addAction(hide_action)
         tray_menu.addAction(quit_action)
         return tray_menu
 
     def on_tray_icon_activated(self, reason):
-        """ Показать окно двойным кликом по иконке в трее """
-        if reason == QSystemTrayIcon.DoubleClick:
-            self.show()
+        """ Показать или скрыть окно одинарным кликом по иконке в трее """
+        # if reason == QSystemTrayIcon.DoubleClick:
+        if reason == QSystemTrayIcon.Trigger:
+            if self.isVisible():
+                self.hide()
+            else:
+                self.show()
         #
 
     def show_icon(self, color='blue'):
         """ Отображение иконки в трее """
-        icon = os.path.join(servise.get_base_path(), "icons", "icon_blue.ico")
+        icon = os.path.join(service.get_base_path(), "icons", "icon_blue.ico")
         if color is 'red':
-            icon = os.path.join(servise.get_base_path(), 'icons', 'icon_red.ico')
+            icon = os.path.join(service.get_base_path(), 'icons', 'icon_red.ico')
         if color is 'green':
-            icon = os.path.join(servise.get_base_path(), 'icons', 'icon_green.ico')
+            icon = os.path.join(service.get_base_path(), 'icons', 'icon_green.ico')
         #
         self.tray_icon.setIcon(QIcon(icon))
         #

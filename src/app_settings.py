@@ -74,7 +74,7 @@ class AppSettings:
             connector_space_bar_keys: str = None,
             connector_none_keys: str = None,
     ):
-        self.client_version = 0.4
+        self.client_version = 0.5
         #
         self.client_id = client_id
         self.client_name = str_validator(client_name)

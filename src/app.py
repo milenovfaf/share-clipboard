@@ -18,15 +18,13 @@ import app_settings
 import gui_qt
 import handler
 import client
-import servise
+import service
 
 import logging
 from logging import handlers
 
 log = logging.getLogger(__name__)
 
-
-# ------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------
 
 
@@ -42,9 +40,9 @@ class App:
         self.gui = gui_qt.ShowUiMainWindow(
             self.callback_settings_update,
             self.callback_apply_received_share_data,
-            self.create_image_file,
+            self.callback_create_image_file,
             self.callback_show_image,
-            # self.is_need_reconnect,
+            self.callback_is_need_reconnect,
         )
         # ----------------------------------------------------------------------
         self.remote = client.Client(
@@ -53,14 +51,16 @@ class App:
         )
         # ----------------------------------------------------------------------
         self.settings = None
-        self.received_sync_clipboard_data = None
+        self.data_for_create_file = ['', '']
+        self.received_data_for_comparison = None
         self.list_received_share_data = []
+        self.type_data = ''
         # ------ Буфер ---------------------------------------------------------
         self.clipboard = QtWidgets.QApplication.clipboard()
         # Если содержимое буфера обмена изменилось
         self.clipboard.dataChanged.connect(
             lambda: self.hotkey_handler.synchronizer_clipboard(
-                self.received_sync_clipboard_data
+                self.received_data_for_comparison
             ))
         # ----------------------------------------------------------------------
         self.reconnection = Thread(
@@ -73,13 +73,13 @@ class App:
     def start_app(self):
         """ Старт """
         log.debug(f'App.start_app - START')
-        self.settings = servise.load_settings(self.settings_file_path)
+        self.settings = service.load_settings(self.settings_file_path)
         if self.settings is None:
-            self.settings = servise.create_settings(self.settings_file_path)
+            self.settings = service.create_settings(self.settings_file_path)
         assert isinstance(self.settings, app_settings.AppSettings)
         log.debug(f'App.start_app - settings: {self.settings.to_dict()}')
         #
-        with servise.error_interceptor(
+        with service.error_interceptor(
                 self.gui, 'Ошибка синтаксиса'
         ):
             self.hotkey_handler.start(self.settings)
@@ -110,14 +110,14 @@ class App:
             #
             if not self.settings.client_name and self.settings.ip and self.settings.port:
                 self.gui.show_msg('Не заданы обязательные поля')
-                self.gui.show_icon('red')
                 time.sleep(1)
                 continue
             # ----------------------------------- #
             log.info('RECONNECT')
             self.is_need_reconnect.clear()
+            self.gui.show_icon('red')
             #
-            with servise.error_interceptor(
+            with service.error_interceptor(
                     self.gui, success=True
             ):
                 if self.remote.is_connected:
@@ -130,7 +130,7 @@ class App:
                 )  # ---------------------------- #
                 self.remote.connect(self.settings)
                 log.debug('App.reconnect - try reconnect - SUCCESS')
-
+            #
             _sleep_value = _reconnect_sleep_map[-1]
             if _reconnect_id < len(_reconnect_sleep_map):
                 _sleep_value = _reconnect_sleep_map[_reconnect_id]
@@ -145,9 +145,14 @@ class App:
         #
         log.debug(f'App.reconnect - thread END')
 
+    # --------------------------------------------------------------------------
+    @service.callback_error_alert
+    def callback_is_need_reconnect(self):
+        self.is_need_reconnect.set()
+
     # ------ Apply settings ----------------------------------------------------
 
-    @servise.callback_error_alert
+    @service.callback_error_alert
     def callback_settings_update(self, new_settings: app_settings.AppSettings):
         """ Рестарт c новыми настройками """
         self.settings = new_settings
@@ -156,7 +161,7 @@ class App:
         #
         log.debug(
             f'App.callback_settings_update - new_settings {self.settings.to_dict()}')
-        with servise.error_interceptor(
+        with service.error_interceptor(
                 self.gui, 'Ошибка синтаксиса'
         ):
             self.hotkey_handler.stop()
@@ -171,11 +176,16 @@ class App:
 
     # ------ Send --------------------------------------------------------------
 
-    @servise.callback_error_alert
-    def _callback_on_synchronization(self, type_data, clipboard_data):
+    @service.callback_error_alert
+    def _callback_on_synchronization(
+            self, type_data, clipboard_data, binary_data
+    ):
         """ Отправка данных на сервер для клиента синхронизации """
         log.debug(f'App._callback_on_synchronization')
-        with servise.error_interceptor(
+        #
+        self.data_for_create_file = [type_data, binary_data]
+        #
+        with service.error_interceptor(
                 self.gui, success=True
         ):
             self.remote.send_clipboard_content(
@@ -187,11 +197,11 @@ class App:
                 clipboard_data,
             )
 
-    @servise.callback_error_alert
+    @service.callback_error_alert
     def _callback_on_share(self, type_data, clipboard_data):
         """ Отправка данных на сервер для клиента с которым делимся """
         log.debug(f'App._callback_on_share')
-        with servise.error_interceptor(
+        with service.error_interceptor(
                 self.gui, success=True
         ):
             self.remote.send_clipboard_content(
@@ -202,11 +212,10 @@ class App:
                 type_data,
                 clipboard_data,
             )
-        #
 
     # ------- Receive ----------------------------------------------------------
 
-    @servise.callback_error_alert
+    @service.callback_error_alert
     def _callback_receive_msg(self, msg, success=None, popup=None):
         """ Получение сообщений от клиента и сервера """
         log.debug(f'App._callback_receive_msg {msg}')
@@ -214,9 +223,10 @@ class App:
 
     #
 
-    @servise.callback_error_alert
-    def _callback_receive_clipboard_data(self, client_name, type_data,
-                                         clipboard_data):
+    @service.callback_error_alert
+    def _callback_receive_clipboard_data(
+            self, client_name, type_data, clipboard_data
+    ):
         """ Получение данных буфера обмена от сервера и синхронизация """
         log.debug(f'App._callback_receive_clipboard_data - '
                   f'client_name: {client_name}, '
@@ -241,10 +251,13 @@ class App:
             self.gui.show_icon('green')
             return
         #
+        self.type_data = type_data
         self.apply_received_data(type_data, clipboard_data)
         #
 
-    @servise.callback_error_alert
+    # ------- Apply data -------------------------------------------------------
+
+    @service.callback_error_alert
     def callback_apply_received_share_data(self):
         """ Применить полученные данные """
         log.debug(f'App.callback_apply_received_data')
@@ -258,117 +271,112 @@ class App:
                       f'type_data: {type_data}, '
                       f'clipboard_data: {clipboard_data[:60]}')
             #
-            self.apply_received_data(type_data, clipboard_data,
-                                     show_window=True)
+            self.apply_received_data(
+                type_data, clipboard_data, show_window=True
+            )
             #
             self.gui.show_icon('blue')
             #
         #
-        # Тест
-        # type_data = 'image/png'
-        # data = 'iVBORw0KGgoAAAANSUhEUgAAAGwAAACJCAYAAADJ7938AAAABHNCSVQICAgIfAhkiAAAAvlJREFUeF7tndFKBEEQA13x/39ZXWFBln0QzOQm6boXOZF0WzUZ70D0+Px+vPGIIfAesymL/hBAWNhBQBjCwgiErUvDEBZGIGxdGoawMAJh69IwhIURCFuXhiEsjEDYujQMYWEEwtalYQgLIxC2Lg1DWBiBsHVpGMLCCIStS8MQFkYgbF0ahrAwAmHr0jCEhREIW5eGISyMQNi6NAxhYQTC1qVhCAsjELYuDUNYGIGwdWkYwsIIhK37Ebbv8nWP41g+4z8DRgvbXc6T2JHCEkVd8kYJSxY1SliDqEtY/cv6JlmntNorsU1UdcNaZZ3S6q7EZlmVwq6ro/VjVcPa21XVsAmyqoS1XoH376viSpzSLhp2P74Bz+MbNqldNCygUfcVoxs2rV007H58A55HNyyAr3xFhMmRrg1E2Fq+8vRYYRNfcJz2Y4XJj25IIMJCRF1rIgxhYQTC1o1t2NR/exYrLKwYsnURJkPpCUKYh7NsCsJkKD1B0cImvvCIFuY503tNiRc2rWXxwvY6/+u3qRA2qWUVwtaf630m1Aib0rIaYWcHJkirErbPxbVukzph7S2rE9Z+NVYKu6Q1tq1W2PVTpE1avbC2to0Q9rtt6Y0bJaxBXO1fwvnLO6Gntu3+G8WjhT1JfZL49HWv+tzIK/FVsBVzEaagaMxAmBG2YhTCFBSNGQgzwlaMQpiCojEDYUbYilEIU1A0ZiDMCFsxCmEKisYMhBlhK0YhTEHRmIEwI2zFKIQpKBozEGaErRiFMAVFYwbCjLAVoxCmoGjMQJgRtmIUwhQUjRkIM8JWjEKYgqIxA2FG2IpRCFNQNGYgzAhbMQphCorGDIQZYStGIUxB0ZiBMCNsxSiEKSgaMxBmhK0YhTAFRWMGwoywFaMQpqBozECYEbZiFMIUFI0ZCDPCVoxCmIKiMQNhRtiKUQhTUDRmIMwIWzEKYQqKxgyEGWErRiFMQdGYgTAjbMUohCkoGjMQZoStGIUwBUVjBsKMsBWjEKagaMz4ArtnPhXIRKmLAAAAAElFTkSuQmCC'
-        # self.apply_received_data(type_data, data, show_window=True)
 
-    # ------- handling ---------------------------------------------------------
-
-    @servise.callback_error_alert
-    def callback_show_image(self):
-        log.debug(f'App.callback_show_image')
-        if not isinstance(self.received_sync_clipboard_data, bytes):
-            return
-        image, _ = servise.create_image_object(
-            self.received_sync_clipboard_data
-        )
-        self.gui.image_window.show_window(image)
-    #
-
-    def apply_received_data(self, type_data, clipboard_data, show_window=None):
+    def apply_received_data(self, type_data, received_data, show_window=None):
         """ Применить полученные данные """
         log.debug(f'App.apply_received_data - '
                   f'type_data: {type_data}')
+        # ---------------------------------------------- #
+        with service.identify_os(
+                service.get_clipboard_data_on_linux,
+                service.get_clipboard_data_on_windows
+        ) as get_clipboard_data:
+            try:
+                clipboard_data, _, binary_data = get_clipboard_data()
+            except:
+                return
         #
-        if type_data == 'text':
-            if clipboard_data == self.clipboard.text():
+        self.type_data = type_data
+
+        # ------- TEXT ---------------------------------------------------------
+        if type_data == 'text/plain':
+            if clipboard_data == received_data:
                 log.debug(f'App.apply_received_data - PASS')
                 return
             #
-            self.received_sync_clipboard_data = clipboard_data
-            # ---- Вызовит синхронизацию ---- #
-            pyperclip.copy(clipboard_data)
+            self.received_data_for_comparison = received_data
+            # ---------------------------------------------- #
+            with service.identify_os(
+                    service.paste_data_in_clipboard_on_linux,
+                    service.paste_data_in_clipboard_on_windows
+            ) as paste_data_in_clipboard:
+                # ---- Вызовит синхронизацию ---- #
+                paste_data_in_clipboard(received_data, type_data)
+            # ---------------------------------------------- #
             log.debug(f'App.apply_received_data - '
                       f'Добавлены полученные данные в буфер обмена')
             return
-            #
-        #
+
+        # ------- IMAGE --------------------------------------------------------
         if type_data == 'image/png':
-            # Декодирование данных изображения из строки в бинарный формат
-            binary_image_data = base64.b64decode(clipboard_data.encode('utf-8'))
+            received_binary_data = service.get_decoded_data(received_data)
             #
-            image, image_buffer = servise.create_image_object(binary_image_data)
-            #
-            received_mime_data = QtCore.QMimeData()
-            received_mime_data.setData('image/png', image_buffer.data())
-            # ------------------------------------------------------------------
-            mime_data = self.clipboard.mimeData()
-            binary_data = bytes(mime_data.data("image/png"))
-            received_binary_data = bytes(received_mime_data.data("image/png"))
-            #
-            if received_binary_data == binary_data:
+            if binary_data == received_binary_data:
                 log.debug(f'App.apply_received_data - PASS')
                 return
+
             # ------------------------------------------------------------------
-            self.received_sync_clipboard_data = received_binary_data
-            # ---- Вызовит синхронизацию ---- #
-            self.clipboard.setMimeData(received_mime_data)
+            self.data_for_create_file = [type_data, received_binary_data]
+            self.received_data_for_comparison = received_binary_data
+            # ---------------------------------------------- #
+            with service.identify_os(
+                    service.paste_data_in_clipboard_on_linux,
+                    service.paste_data_in_clipboard_on_windows
+            ) as paste_data_in_clipboard:
+                # ---- Вызовит синхронизацию ---- #
+                paste_data_in_clipboard(received_binary_data, type_data)
+            # ---------------------------------------------- #
             log.debug(f'App.apply_received_data - '
                       f'Добавлены полученные данные в буфер обмена')
             #
             if show_window:
-                self.gui.image_window.show_window(image)
-            return
-        #
-        #     ''' урлы нельзя сравнить, так как приходят не урлы а файлы,
-        #     нужно где то хранить изначальные данные буфера и их сравнивать '''
-        # if type_data == 'list_urls':
-        #     if clipboard_data == self.clipboard.mimeData().urls():
-        #         log.debug(f'App._callback_receive_clipboard_data - PASS')
-        #         return
+                self.callback_show_image()
+            #
+    # --------------------------------------------------------------------------
 
-    def create_image_file(self, directory="images", file_name=None):
-        log.debug(f'App.create_image_file')
-        if not os.path.exists(directory):
-            os.makedirs(directory)
-            return
-        #
-        if not isinstance(self.received_sync_clipboard_data, bytes):
-            return
-        #
-        image = Image.open(io.BytesIO(self.received_sync_clipboard_data))
-        #
-        if file_name:
-            name, extension = os.path.splitext(file_name)
-            if not extension:
-                file_name = file_name + '.png'
-                absolute_file_path = os.path.join(directory, file_name)
-                image.save(absolute_file_path)
-                log.debug(f'App.create_image_file - Файл создан')
+    @service.callback_error_alert
+    def callback_create_image_file(self, directory=None):
+        log.debug(f'App.callback_create_image_file')
+        if self.data_for_create_file:
+            type_data, data = self.data_for_create_file
+
+            if not isinstance(data, bytes):
+                log.debug(f'App.callback_show_image - Данные не бинарные')
                 return
-            #
-            if extension != '.png':
-                msg = 'Указано не верное расширение'
-                self.gui.show_msg(msg, success=True, popup=True)
-                return
-            #
-            file_path = os.path.join(directory, file_name)
-            image.save(file_path)
-            log.debug(f'App.create_image_file - Файл создан')
+
+            service.create_image_file(
+                data,
+                'png',
+                directory,
+            )
             return
-            #
-        now = datetime.datetime.now()
-        file_name = now.strftime('%Y-%m-%d_%H-%M-%S.png')
-        absolute_file_path = os.path.join(directory, file_name)
-        image.save(absolute_file_path)
-        #
+        log.debug(f'App.callback_create_image_file - Нет изображения')
+
+    @service.callback_error_alert
+    def callback_show_image(self):
+        log.debug(f'App.callback_show_image')
+        if self.data_for_create_file:
+            type_data, data = self.data_for_create_file
+
+            if not isinstance(data, bytes):
+                log.debug(f'App.callback_show_image - Данные не бинарные')
+                return
+
+            absolute_file_path = service.create_image_file(
+                data,
+                'png',
+                directory=None
+            )
+            service.open_file_with_os(absolute_file_path)
+            return
+        log.debug(f'App.callback_show_image - Нет изображения')
 
 # ------------------------------------------------------------------------------
 
@@ -390,7 +398,8 @@ def init_logging(app):
     logger.setLevel(logging.DEBUG)
     # ------------------------------------------------- #
     formatter = logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
     # ------------------------------------------------- #
     window_handler = LogHandler(app.gui.log_window)
     window_handler.setLevel(logging.DEBUG)
@@ -400,8 +409,9 @@ def init_logging(app):
     console_handler.setLevel(logging.DEBUG)
     console_handler.setFormatter(formatter)
     # ------------------------------------------------- #
-    file_handler = logging.handlers.RotatingFileHandler('logs.log',
-                                                        maxBytes=1024)
+    file_handler = logging.handlers.RotatingFileHandler(
+        'logs.log', maxBytes=1024
+    )
     file_handler.setLevel(logging.DEBUG)
     file_handler.setFormatter(formatter)
     # ------------------------------------------------- #
@@ -417,6 +427,7 @@ def main(file='app_settings.json'):
     init_logging(app)
     # ------------------------------------------------- #
     log.debug('main - BEGIN')
+    service.checking_os_libraries()
     try:
         log.debug(f'main - start_app')
         app.start_app()
@@ -434,3 +445,4 @@ def main(file='app_settings.json'):
 if __name__ == '__main__':
     main()
 #
+

@@ -46,6 +46,11 @@
 > sudo apt-get install xsel
 > 
 > sudo apt-get --reinstall install libqt5dbus5 libqt5widgets5 libqt5network5 libqt5gui5 libqt5core5a libdouble-conversion1 libxcb-xinerama0
+>
+На Windows для работы с буфером, необходимо установить:
+
+> pip install pywin32
+>
 
 
 ## Сервер

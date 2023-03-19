@@ -51,6 +51,7 @@ class Client:
                         if server_data.get('status') == 'pong':
                             continue
                     except ReadTimeoutError as e:
+                        log.debug('-' * 60)
                         log.debug(f'Client.msg_server_handler - Не получен ответ PONG - BREAK')
                         break
                 #
@@ -109,7 +110,8 @@ class Client:
     # --------------------------------------------------------------------------
 
     def connect(self, settings: app_settings.AppSettings) -> None:
-        log.debug(f'Client.connect')
+
+        log.debug(f'Client.connect --- Подключение {"-" * 78}')
         self.settings = settings
         self.transport.sock.connect((settings.ip, int(settings.port)))
         log.info(f'Подключено к: {settings.ip}:{settings.port}')
