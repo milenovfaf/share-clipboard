@@ -1,11 +1,8 @@
 import os
-import sys
 
 from PyQt5 import QtCore, QtWidgets, QtGui
 from PyQt5.QtGui import QIcon, QTextCursor
-from PyQt5.QtWidgets import QSystemTrayIcon, QMenu, QAction, qApp, \
-    QFileDialog
-from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QSystemTrayIcon, QMenu, QAction, qApp
 
 import app_settings
 import gui_qtdesigner
@@ -129,9 +126,7 @@ class ShowUiMainWindow(QtWidgets.QMainWindow):
         self.ui = gui_qtdesigner.UiMainWindow()
         self.ui.setupUi(self)
         # ----------------------------------------------------------------------
-        self.dialog_window = DialogWindow(self.callback_create_image_file)
-        # ----------------------------------------------------------------------
-        # self.image_window = ImageWindow(self.callback_create_image_file)
+        # self.dialog_window = DialogWindow(self.callback_create_image_file)
         # ----------------------------------------------------------------------
         self.log_window = LogWindow()
         # ----------------------------------------------------------------------

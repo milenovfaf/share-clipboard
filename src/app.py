@@ -1,18 +1,8 @@
-import os
 import sys
 import time
-import datetime
-import io
-import base64
 from threading import Thread
 from threading import Event
-from functools import wraps
-from pathlib import Path
-from contextlib import contextmanager
-
-import pyperclip
-from PIL import Image
-from PyQt5 import QtWidgets, QtCore, QtGui
+from PyQt5 import QtWidgets
 
 import app_settings
 import gui_qt
@@ -59,9 +49,8 @@ class App:
         self.clipboard = QtWidgets.QApplication.clipboard()
         # Если содержимое буфера обмена изменилось
         self.clipboard.dataChanged.connect(
-            lambda: self.hotkey_handler.synchronizer_clipboard(
-                self.received_data_for_comparison
-            ))
+            lambda: self.hotkey_handler.synchronizer_clipboard()
+        )
         # ----------------------------------------------------------------------
         self.reconnection = Thread(
             target=self.reconnect
@@ -220,7 +209,6 @@ class App:
         """ Получение сообщений от клиента и сервера """
         log.debug(f'App._callback_receive_msg {msg}')
         self.gui.show_msg(msg, success, popup=True)
-
     #
 
     @service.callback_error_alert
@@ -244,7 +232,12 @@ class App:
             if len(self.list_received_share_data) >= 10:
                 del self.list_received_share_data[:1]
             #
-            msg = f'Получены данные от: {client_name}'
+            msg = None
+            if type_data == 'text/plain':
+                msg = f'Получен текст от: {client_name}'
+            if type_data == 'image/png':
+                msg = f'Получено изображение от: {client_name}'
+            #
             log.debug(f'App._callback_receive_clipboard_data - {msg}')
             #
             self.gui.show_msg(msg, success=True, popup=True)
@@ -283,57 +276,38 @@ class App:
         """ Применить полученные данные """
         log.debug(f'App.apply_received_data - '
                   f'type_data: {type_data}')
-        # ---------------------------------------------- #
-        with service.identify_os(
-                service.get_clipboard_data_on_linux,
-                service.get_clipboard_data_on_windows
-        ) as get_clipboard_data:
-            try:
-                clipboard_data, _, binary_data = get_clipboard_data()
-            except:
-                return
-        #
-        self.type_data = type_data
 
         # ------- TEXT ---------------------------------------------------------
         if type_data == 'text/plain':
-            if clipboard_data == received_data:
-                log.debug(f'App.apply_received_data - PASS')
-                return
-            #
-            self.received_data_for_comparison = received_data
             # ---------------------------------------------- #
             with service.identify_os(
                     service.paste_data_in_clipboard_on_linux,
                     service.paste_data_in_clipboard_on_windows
             ) as paste_data_in_clipboard:
                 # ---- Вызовит синхронизацию ---- #
+                self.hotkey_handler.is_need_synchronization.clear()
                 paste_data_in_clipboard(received_data, type_data)
             # ---------------------------------------------- #
-            log.debug(f'App.apply_received_data - '
+            log.debug(f'App.apply_received_data --- '
                       f'Добавлены полученные данные в буфер обмена')
             return
 
         # ------- IMAGE --------------------------------------------------------
         if type_data == 'image/png':
+            # ---------------------------------------------- #
             received_binary_data = service.get_decoded_data(received_data)
             #
-            if binary_data == received_binary_data:
-                log.debug(f'App.apply_received_data - PASS')
-                return
-
-            # ------------------------------------------------------------------
             self.data_for_create_file = [type_data, received_binary_data]
-            self.received_data_for_comparison = received_binary_data
             # ---------------------------------------------- #
             with service.identify_os(
                     service.paste_data_in_clipboard_on_linux,
                     service.paste_data_in_clipboard_on_windows
             ) as paste_data_in_clipboard:
                 # ---- Вызовит синхронизацию ---- #
+                self.hotkey_handler.is_need_synchronization.clear()
                 paste_data_in_clipboard(received_binary_data, type_data)
             # ---------------------------------------------- #
-            log.debug(f'App.apply_received_data - '
+            log.debug(f'App.apply_received_data --- '
                       f'Добавлены полученные данные в буфер обмена')
             #
             if show_window:
@@ -374,7 +348,10 @@ class App:
                 'png',
                 directory=None
             )
-            service.open_file_with_os(absolute_file_path)
+            try:
+                service.open_file_with_os(absolute_file_path)
+            except:
+                pass
             return
         log.debug(f'App.callback_show_image - Нет изображения')
 
@@ -427,7 +404,6 @@ def main(file='app_settings.json'):
     init_logging(app)
     # ------------------------------------------------- #
     log.debug('main - BEGIN')
-    service.checking_os_libraries()
     try:
         log.debug(f'main - start_app')
         app.start_app()

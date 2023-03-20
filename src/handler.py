@@ -1,13 +1,6 @@
-import binascii
-import imghdr
-import platform
-import subprocess
-import time
-import pyperclip
-import base64
-from PyQt5 import QtWidgets, QtGui, QtCore
+from PyQt5 import QtWidgets
 from pynput.keyboard import Controller, Key
-import mimetypes
+from threading import Event
 
 from pynput import keyboard
 import logging
@@ -34,6 +27,9 @@ class HotkeysCopyPasteHandler(object):
         self.kh = None
         self.connector = '\n'
         self.list_clipboard_data = ['', '']
+        # ----------------------------------------------------------------------
+        self.is_need_synchronization = Event()
+        self.is_need_synchronization.set()
         # ----------------------------------------------------------------------
     #
 
@@ -70,12 +66,16 @@ class HotkeysCopyPasteHandler(object):
         self.kh = keyboard.GlobalHotKeys(callback_set)  # <<<<<<<<<<<<<<
     # --------------------------------------------------------------------------
 
-    def synchronizer_clipboard(self, received_data_for_comparison):
+    def synchronizer_clipboard(self):
         """ Синхронизация буфера между клиентами """
+        if self.is_need_synchronization.is_set() is False:
+            self.is_need_synchronization.set()
+            log.info(f'handler.synchronizer_clipboard --- Синхронизация не нужна')
+            return
+        # ----------------------------------------------------------------------
         log.info(f'handler.synchronizer_clipboard --- '
                  f'Обнаружено изменение буфера обмена {"-" * 39}')
         # ----------------------------------------------------------------------
-
         with service.identify_os(
                 service.get_clipboard_data_on_linux,
                 service.get_clipboard_data_on_windows
@@ -83,16 +83,13 @@ class HotkeysCopyPasteHandler(object):
             try:
                 clipboard_data, type_data, binary_data = get_clipboard_data()
             except:
+                log.info(
+                    f'handler.synchronizer_clipboard --- Данные не определены')
                 return
+        # ----------------------------------------------------------------------
         if not clipboard_data:
             log.info('handler.synchronizer_clipboard -- '
                      'Нет данных text/plain и image/png - RETURN')
-            return
-        # ----------------------------------------------------------------------
-        if (clipboard_data or binary_data) == received_data_for_comparison:
-            self.list_clipboard_data.append(clipboard_data)
-            #
-            log.info(f'{list(map(lambda x: x[:300], self.list_clipboard_data[-3:]))[::-1]}')
             return
         # ----------------------------------------------------------------------
         log.info('handler.synchronizer_clipboard - '
@@ -101,14 +98,10 @@ class HotkeysCopyPasteHandler(object):
         if binary_data:
             log.info(f'binary_data - {binary_data[:100]}')
         # ----------------------------------------------------------------------
-        #
-        if clipboard_data != self.list_clipboard_data[-1]:
-            self.list_clipboard_data.append(clipboard_data)
-        #
-
+        self.list_clipboard_data.append(clipboard_data)
         if len(self.list_clipboard_data) >= 10:
-            del self.list_clipboard_data[:1]  # удалить первые 30
-
+            del self.list_clipboard_data[:1]
+        #
         log.info(f'handler.synchronizer_clipboard - Сработала синхронизация: '
                  f'{list(map(lambda x: x[:500], self.list_clipboard_data[-3:]))[::-1]}')
         #

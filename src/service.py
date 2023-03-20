@@ -7,13 +7,13 @@ import datetime
 import platform
 import subprocess
 import time
+import chardet
 
 from functools import wraps
 from pathlib import Path
 from contextlib import contextmanager
 
 from PIL import Image
-
 try:
     import win32clipboard
 except:
@@ -22,10 +22,72 @@ except:
 import app_settings
 
 import logging
-
 log = logging.getLogger(__name__)
 
+# ------------------------------------------------------------------------------
 
+
+@contextmanager
+def error_interceptor(gui, msg=None, success=False):
+    """ Обработка ошибок """
+    try:
+        gui.show_msg(msg='')
+        if success:
+            gui.show_msg('Подключено к серверу', success)
+            gui.show_icon('blue')
+        yield None
+    except (ConnectionError, ConnectionRefusedError) as e:
+        log.exception(e)
+        gui.show_msg('Нет подключения к серверу')
+        gui.show_icon('red')
+    except Exception as e:
+        log.exception(e)
+        gui.show_msg(f'{msg} ({e})')
+        gui.show_icon('red')
+    finally:
+        pass
+
+
+def callback_error_alert(fn):
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        try:
+            return fn(*args, **kwargs)
+        except Exception as e:
+            log.exception(e)
+            print(e)
+            raise
+        #
+
+    return wrapper
+# ------------------------------------------------------------------------------
+
+
+def load_settings(settings_file_path):
+    """ Чтение файла настроек """
+    log.debug(f'_load_settings - {settings_file_path}')
+    if not Path(settings_file_path).exists():
+        return
+    #
+    try:
+        with open(settings_file_path, 'r') as file:
+            old_settings = app_settings.AppSettings.load_from_file(file)
+            return old_settings
+        #
+    except app_settings.EmtpyFileSettingsError as e:
+        log.exception(e)
+    #
+
+
+def create_settings(settings_file_path):
+    """ Создание файла настроек """
+    log.debug(f'_create_settings - {settings_file_path}')
+    #
+    old_settings = app_settings.get_default_app_settings()
+    with open(settings_file_path, 'w+') as file:
+        old_settings.save_to_file(file)
+    #
+    return old_settings
 # ------------------------------------------------------------------------------
 
 
@@ -67,32 +129,18 @@ def identify_os(func_linux, func_windows):
 # ------------------------------------------------------------------------------
 
 
-def checking_os_libraries():
-    if platform.system() == 'Linux':
-        try:
-            subprocess.run(
-                ['xclip', '-version'],
-                check=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE
-            )
-            log.debug('Библиотека xclip установлена')
-        except subprocess.CalledProcessError:
-            log.exception('Библиотека xclip не установлена')
+def get_decoded_data(str_data):
+    log.info('service.get_decoded_data')
+    data = str_data.encode('utf-8')
+    decoded_data = base64.b64decode(data)
+    return decoded_data
 
-    if platform.system() == 'Windows':
-        if pkgutil.find_loader("win32clipboard"):
-            log.debug("Библиотека win32clipboard установлена")
-        else:
-            log.debug("Библиотека win32clipboard не установлена")
-            try:
-                subprocess.check_call(['pip', 'install', 'pywin32'])
-                while not pkgutil.find_loader("win32clipboard"):
-                    log.debug("Идёт установка библиотеки win32clipboard")
-                    time.sleep(1)
-            except Exception:
-                log.exception("Не удалось установить библиотеку win32clipboard")
 
+def get_encoded_data(binary_data):
+    log.info('service.get_encoded_data')
+    encoded_data = base64.b64encode(binary_data)
+    encoded_data = encoded_data.decode('utf-8')
+    return encoded_data
 # ------------------------------------------------------------------------------
 
 
@@ -123,9 +171,15 @@ def get_clipboard_data_on_linux():
     list_types = data.decode('utf-8').splitlines()
     #
     if 'text/plain' in list_types:
-        log.info('service.get_clipboard_data_on_linux -- ЭТО ТЕКСТ')
         data = _get_data('text/plain')
-        data = data.decode('utf-8')
+        #
+        encoding = chardet.detect(data)['encoding']
+        log.info(f'service.get_clipboard_data_on_linux -- ЭТО ТЕКСТ {encoding}')
+        if encoding == 'utf-8':
+            data = data.decode('utf-8')
+        if encoding == 'ascii':
+            data = data.decode('unicode_escape')
+        #
         binary_data = None
         type_data = 'text/plain'
         return data, type_data, binary_data
@@ -149,13 +203,11 @@ def get_clipboard_data_on_windows():
     if win32clipboard.IsClipboardFormatAvailable(win32clipboard.CF_UNICODETEXT):
         log.info('service.get_clipboard_data_on_windows -- ЭТО ТЕКСТ')
         data = win32clipboard.GetClipboardData(win32clipboard.CF_UNICODETEXT)
-        # data = data.decode('Windows-1251') для CF_TEXT
         binary_data = None
         type_data = 'text/plain'
         win32clipboard.CloseClipboard()
         return data, type_data, binary_data
     #
-
     if win32clipboard.IsClipboardFormatAvailable(win32clipboard.CF_DIB):
         log.info('service.get_clipboard_data_on_windows -- ЭТО ИЗОБРАЖЕНИЕ')
         binary_data = win32clipboard.GetClipboardData(win32clipboard.CF_DIB)
@@ -164,6 +216,7 @@ def get_clipboard_data_on_windows():
         win32clipboard.CloseClipboard()
         return data, type_data, binary_data
     #
+    win32clipboard.CloseClipboard()
 
 
 def paste_data_in_clipboard_on_linux(data, type_data):
@@ -196,16 +249,6 @@ def paste_data_in_clipboard_on_windows(data, type_data):
 # ------------------------------------------------------------------------------
 
 
-def get_decoded_data(str_data):
-    decoded_data = base64.b64encode(str_data).encode('utf-8')
-    return decoded_data
-
-
-def get_encoded_data(binary_data):
-    encoded_data = base64.b64encode(binary_data).decode('utf-8')
-    return encoded_data
-
-
 def delete_cash_file(directory):
     files = os.listdir(directory)
     files = sorted(
@@ -219,7 +262,8 @@ def delete_cash_file(directory):
 def create_image_file(image_bytes, format_img, directory=None):
     log.debug(f'App.create_image_file')
     #
-    image = Image.open(io.BytesIO(image_bytes))
+    image = io.BytesIO(image_bytes)
+    image = Image.open(image)
     #
     now = datetime.datetime.now()
     file_name = now.strftime('%Y-%m-%d_%H-%M-%S.')
@@ -242,73 +286,7 @@ def create_image_file(image_bytes, format_img, directory=None):
     delete_cash_file(absolute_directory)
     return absolute_file_path
 
-
 # ------------------------------------------------------------------------------
 
 
-@contextmanager
-def error_interceptor(gui, msg=None, success=False):
-    """ Обработка ошибок """
-    try:
-        gui.show_msg(msg='')
-        if success:
-            gui.show_msg('Подключено к серверу', success)
-            gui.show_icon('blue')
-        yield None
-    except (ConnectionError, ConnectionRefusedError) as e:
-        log.exception(e)
-        gui.show_msg('Нет подключения к серверу')
-        gui.show_icon('red')
-    except Exception as e:
-        log.exception(e)
-        gui.show_msg(f'{msg} ({e})')
-        gui.show_icon('red')
-    finally:
-        pass
 
-
-def callback_error_alert(fn):
-    @wraps(fn)
-    def wrapper(*args, **kwargs):
-        try:
-            return fn(*args, **kwargs)
-        except Exception as e:
-            log.exception(e)
-            print(e)
-            raise
-        #
-
-    return wrapper
-
-# ------------------------------------------------------------------------------
-
-
-def load_settings(settings_file_path):
-    """ Чтение файла настроек """
-    log.debug(f'_load_settings - {settings_file_path}')
-    if not Path(settings_file_path).exists():
-        return
-    #
-    try:
-        with open(settings_file_path, 'r') as file:
-            old_settings = app_settings.AppSettings.load_from_file(file)
-            return old_settings
-        #
-    except app_settings.EmtpyFileSettingsError as e:
-        log.exception(e)
-    #
-
-
-def create_settings(settings_file_path):
-    """ Создание файла настроек """
-    log.debug(f'_create_settings - {settings_file_path}')
-    #
-    old_settings = app_settings.get_default_app_settings()
-    with open(settings_file_path, 'w+') as file:
-        old_settings.save_to_file(file)
-    #
-    return old_settings
-
-# ------------------------------------------------------------------------------
-
-# ------------------------------------------------------------------------------

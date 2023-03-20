@@ -57,7 +57,6 @@ class Client:
                 #
                 else:
                     server_data = self.transport.recv()
-                    log.debug(f'Client.msg_server_handler - server_data: {server_data} ')
                 # --------------------------------------------#
                 #
                 if not server_data:

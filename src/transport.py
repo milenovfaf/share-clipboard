@@ -57,8 +57,7 @@ class TransportProtocol:
         payload_len = struct.unpack('>I', length_target_data)[0]
         # Декодируем
         result = self._recv_packets(payload_len)
-
-        result = result.decode()
+        result = result.decode('utf8')
 
         if '"status": "pong"' not in result:
             log.debug(f'{"-" * 106}')
