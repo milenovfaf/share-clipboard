@@ -67,7 +67,7 @@ class ServerApp:
     def get_client_id(self, handler):
         handler = self.client_id_map.get(handler, None)
         return handler
-        #
+
 # ------------------------------------------------------------------------------
 
 
@@ -77,7 +77,7 @@ class ThreadedTCPRequestHandler:
         assert isinstance(request, socket.socket)
         assert isinstance(server, ThreadedTCPServer)
         assert isinstance(app, ServerApp)
-        #
+
         self.app = app
         self.transport = JsonTransportProtocol(request)
         self.authorize_lock = threading.RLock()
@@ -124,12 +124,12 @@ class ThreadedTCPRequestHandler:
                         'msg': f'Имя {client_name} недоступно',
                     })
                     return False
-                #
+
                 assert isinstance(exist_handler, self.__class__)
                 exist_handler.logout()
-            #
+
             self.app.register_client(client_id, client_name, handler)
-        #
+
         log.debug(f'------------------------------------------------------')
         self.send_data({
             'status':      'success',
@@ -142,24 +142,23 @@ class ThreadedTCPRequestHandler:
         while True:
             client_data: dict = self.transport.recv()
             log.debug(f'(handle) -- HANDLE -- client_data: {client_data} {self.client_address} HANDLER: {self}')
-            #
+
             if not client_data:
                 break
-            #
+
             client_status = client_data.get('status')
             if client_status == 'ping':
                 self.send_data({
                     'status': 'pong',
                 })
                 continue
-            #
+
             if client_status == 'disconnect':
                 break
-            #
+
             target_client_names = client_data.get('target_client_name')
             if not target_client_names:
                 continue
-            #
 
             for target_name in target_client_names:
                 if self.app.get_handler(target_name) is None:
@@ -168,9 +167,7 @@ class ThreadedTCPRequestHandler:
                 self.app.get_handler(target_name).send_data(
                     client_data
                 )
-                #
-            #
-        #
+
         log.debug('(handle) end loop/')
 
     def logout(self):
@@ -184,22 +181,21 @@ class ThreadedTCPRequestHandler:
             time.sleep(3)  # wait sending/delivering data
         except:
             pass
-        #
 
     def handle(self):
         try:
             if self.authorize(self) is False:
                 log.debug(f'(handle) -- HANDLE -- АВТОРИЗАЦИЯ НЕ ПРОШЛА ДЛЯ: {self.client_address} HANDLER: {self}')
                 return
-            #
+
             log.debug(f'(handle) -- HANDLE -- УСПЕШНАЯ АВТОРИЗИРОВАН: {self.client_address} HANDLER: {self}')
             # - - -
             self.communication_loop()
         finally:
             self.logout()
-        #
 
 # ------------------------------------------------------------------------------
+
 
 def init_logging():
     logger = logging.getLogger()
@@ -222,12 +218,11 @@ def init_logging():
 
 def main():
     init_logging()
-    #
     log.debug(f'main BEGIN ')
     app = ServerApp()
 
     HOST, PORT = '0.0.0.0', 7006
-    #
+
     log.debug(f'main HOST, PORT {HOST, PORT} ')
 
     def _socket_handler(request, client_address, server):
@@ -236,8 +231,7 @@ def main():
             return handler.handle()
         finally:
             request.close()  # important
-        #
-    #
+
     with ThreadedTCPServer((HOST, PORT), _socket_handler) as server:
         log.debug(f'main serve_forever ')
         try:
@@ -247,7 +241,6 @@ def main():
             raise e
         finally:
             log.debug(f'main END. ')
-    #
 
 
 if __name__ == "__main__":

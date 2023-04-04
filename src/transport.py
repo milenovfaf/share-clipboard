@@ -11,7 +11,6 @@ class TransportProtocol:
         assert isinstance(sock, socket)
         self.sock = sock
         self._msg_counter = 0
-    #
 
     def settimeout(self, timeout):
         return self.sock.settimeout(timeout)
@@ -27,7 +26,6 @@ class TransportProtocol:
             struct.pack('>I', len(text)) + text
         )
 
-    #
 
     # Вспомогательная функция
     def _recv_packets(self, n):
@@ -41,11 +39,8 @@ class TransportProtocol:
                 log.debug(f'Not packet')
                 return None
             received_data += packet
-        #
         # log.debug(f'{self._msg_counter} - RECV -{n} bytes == {received_data}')
         return received_data
-
-    #
 
     # Функция чтения принятых данных
     def recv(self):
@@ -64,7 +59,6 @@ class TransportProtocol:
             log.debug(
                 f'{self._msg_counter} -- RECV -- {payload_len} bytes == {result[:500]}')
         return result
-    #
 
 
 class JsonTransportProtocol(TransportProtocol):
@@ -76,5 +70,4 @@ class JsonTransportProtocol(TransportProtocol):
         dump = super(JsonTransportProtocol, self).recv()
         if not dump:
             return None
-        #
         return json.loads(dump)

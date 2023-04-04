@@ -5,7 +5,7 @@ from threading import Event
 from pynput import keyboard
 import logging
 
-import service
+import utils
 
 log = logging.getLogger(__name__)
 
@@ -31,21 +31,18 @@ class HotkeysCopyPasteHandler(object):
         self.is_need_synchronization = Event()
         self.is_need_synchronization.set()
         # ----------------------------------------------------------------------
-    #
 
     def start(self, app_settings) -> None:
         if self.kh is not None:
             raise RuntimeError('Нельзя запускать обработчик дважды!')
-        #
+
         self._configure(app_settings)
         assert isinstance(self.kh, keyboard.GlobalHotKeys)
         self.kh.start()
-    #
 
     def stop(self):
         assert isinstance(self.kh, keyboard.GlobalHotKeys)
         self.kh.stop()
-    #
 
     # --------------------------------------------------------------------------
 
@@ -60,9 +57,9 @@ class HotkeysCopyPasteHandler(object):
         ]:
             if hot_key_map is None:
                 continue
-            #
+
             callback_set[hot_key_map] = callback
-        #
+
         self.kh = keyboard.GlobalHotKeys(callback_set)  # <<<<<<<<<<<<<<
     # --------------------------------------------------------------------------
 
@@ -76,9 +73,9 @@ class HotkeysCopyPasteHandler(object):
         log.info(f'handler.synchronizer_clipboard --- '
                  f'Обнаружено изменение буфера обмена {"-" * 39}')
         # ----------------------------------------------------------------------
-        with service.identify_os(
-                service.get_clipboard_data_on_linux,
-                service.get_clipboard_data_on_windows
+        with utils.identify_os(
+                utils.get_clipboard_data_on_linux,
+                utils.get_clipboard_data_on_windows
         ) as get_clipboard_data:
             try:
                 clipboard_data, type_data, binary_data = get_clipboard_data()
@@ -101,10 +98,10 @@ class HotkeysCopyPasteHandler(object):
         self.list_clipboard_data.append(clipboard_data)
         if len(self.list_clipboard_data) >= 10:
             del self.list_clipboard_data[:1]
-        #
+
         log.info(f'handler.synchronizer_clipboard - Сработала синхронизация: '
                  f'{list(map(lambda x: x[:500], self.list_clipboard_data[-3:]))[::-1]}')
-        #
+
         self._callback_on_synchronization(type_data, clipboard_data, binary_data)
 
         # ----------------------------------------------------------------------
@@ -137,7 +134,6 @@ class HotkeysCopyPasteHandler(object):
         # self.callback_on_copy(joined_content, type_data='text')
         # log.info(f'Сработал copy join: '
         #          f'{list(reversed(self.list_clipboard_data))}')
-    #
 
     def _share_clipboard(self):
         """ Поделиться содержимым буфера обмена """
@@ -145,21 +141,18 @@ class HotkeysCopyPasteHandler(object):
         #
         type_data = 'text'
         clipboard_data = self.clipboard.text()
-        #
+
         self._callback_on_share(type_data, clipboard_data)
 
     def _connector_new_line(self) -> None:
         log.info('Обнаружена комбинация клавиш connector_new_line')
         self.connector = '\n'
-    #
 
     def _connector_space_bar(self) -> None:
         log.info('Обнаружена комбинация клавиш connector_space_bar')
         self.connector = ' '
-    #
 
     def _connector_none(self) -> None:
         log.info('Обнаружена комбинация клавиш connector_none')
         self.connector = ''
-    #
     # --------------------------------------------------------------------------

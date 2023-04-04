@@ -35,34 +35,30 @@ def get_default_app_settings():
 def str_validator(value):
     if value is None:
         return None
-    #
+
     if isinstance(value, list):
         return value
-    #
-    assert isinstance(value, str)
-    # value = re.sub(r'\s+', '', value)
-    # value = value.strip()
-    value = value.replace(' ', '').replace('\t', '')
+
+    value = value.replace(' ', '').replace('\t', '').replace('\n', '')
     if value == '':
         return None
-    #
+
     return value
 
 
 def string_to_list(value):
     if isinstance(value, list):
         return value
-    #
+
     if value is not None:
         value = value.split(',')
         return value
-    #
 
 
 class AppSettings:
     def __init__(
             self,
-            client_id,
+            client_id: str,
             client_name: str = None,
             client_name_for_sync=None,
             client_name_for_share=None,
@@ -75,7 +71,7 @@ class AppSettings:
             connector_none_keys: str = None,
     ):
         self.client_version = 0.5
-        #
+
         self.client_id = client_id
         self.client_name = str_validator(client_name)
         self.client_name_for_sync = string_to_list(
@@ -119,13 +115,14 @@ class AppSettings:
         )
         if flush:
             file.flush()
-        #
 
     @classmethod
     def load_from_file(cls, file):
         dump = file.read()
         if not dump:
             raise EmtpyFileSettingsError
-        #
+
         data = json.loads(dump)
         return cls.from_dict(data)
+
+

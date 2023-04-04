@@ -1,12 +1,13 @@
 import os
 
-from PyQt5 import QtCore, QtWidgets, QtGui
+from PyQt5.QtCore import Qt
+from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtGui import QIcon, QTextCursor
 from PyQt5.QtWidgets import QSystemTrayIcon, QMenu, QAction, qApp
 
 import app_settings
 import gui_qtdesigner
-import service
+import utils
 
 import logging
 log = logging.getLogger(__name__)
@@ -29,7 +30,7 @@ def _window_placement(window):
 #         self.callback_create_image_file = callback_create_image_file
 #
 #     def directory_selection(self):
-#         default_path = service.get_desktop_path()
+#         default_path = utils.get_desktop_path()
 #         dialog = QFileDialog()
 #         dialog.setWindowTitle('Выберите директорию')
 #         dialog.setAcceptMode(QFileDialog.AcceptSave)
@@ -43,7 +44,7 @@ def _window_placement(window):
 #         )
 #         directory = os.path.dirname(file_path)
 #         filename = os.path.basename(file_path)
-#         #
+#
 #         self.callback_create_image_file(directory, filename)
 #
 #     def closeEvent(self, event):
@@ -154,13 +155,13 @@ class ShowUiMainWindow(QtWidgets.QMainWindow):
         log_action = QAction('Показать лог', self)
         hide_action = QAction('Свернуть в трей', self)
         quit_action = QAction('Закрыть', self)
-        #
+
         apply_data_action.triggered.connect(
             lambda: self.callback_apply_received_share_data()
         )
         save_on_desktop_action.triggered.connect(
             lambda: self.callback_create_image_file(
-                directory=service.get_desktop_path()
+                directory=utils.get_desktop_path()
             ))
         # save_action.triggered.connect(
         #     lambda: self.dialog_window.directory_selection()
@@ -203,18 +204,17 @@ class ShowUiMainWindow(QtWidgets.QMainWindow):
                 self.hide()
             else:
                 self.show()
-        #
 
     def show_icon(self, color='blue'):
         """ Отображение иконки в трее """
-        icon = os.path.join(service.get_base_path(), "icons", "icon_blue.ico")
+        base_path = utils.get_base_path()
+        icon = os.path.join(base_path, "icons", "icon_blue.ico")
         if color is 'red':
-            icon = os.path.join(service.get_base_path(), 'icons', 'icon_red.ico')
+            icon = os.path.join(base_path, 'icons', 'icon_red.ico')
         if color is 'green':
-            icon = os.path.join(service.get_base_path(), 'icons', 'icon_green.ico')
-        #
+            icon = os.path.join(base_path, 'icons', 'icon_green.ico')
+
         self.tray_icon.setIcon(QIcon(icon))
-        #
 
     def closeEvent(self, event):
         """ Перехват события закрытия окна """
@@ -230,7 +230,7 @@ class ShowUiMainWindow(QtWidgets.QMainWindow):
     def _set_settings(self, settings: app_settings.AppSettings, update=True):
         """ Вывод имеющихся параметров в поля ввода если они есть """
         self.old_settings = settings
-        #
+
         self.ui.ip.setText(settings.ip)
         self.ui.port.setText(settings.port)
         self.ui.client_name.setText(settings.client_name)
@@ -246,10 +246,9 @@ class ShowUiMainWindow(QtWidgets.QMainWindow):
             settings.connector_space_bar_keys)
         self.ui.connector_enter_keys.setText(settings.connector_new_line_keys)
         self.ui.connector_none_keys.setText(settings.connector_none_keys)
-        #
+
         if update:
             self.update()
-        #
 
     # --------------------------------------------------------------------------
 
